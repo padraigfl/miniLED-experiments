@@ -1,0 +1,57 @@
+.App {
+  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  background-color: black;
+  height: 100vh;
+  justify-content: space-around;
+  --blocks: 2040;
+  --ratioH: 10;
+  --ratioW: 16;
+  /* --blocksPerRow: calc(var(--blocks) / var(--ratioH));
+  --blocksPerCol: calc(var(--blocks) / var(--ratioW)); */
+}
+
+
+.Cell {
+  /* transition: all cubic-bezier(0, 0.5, 0.95, 1.28) 1000ms; */
+  /* filter: brightness(500%) */
+}
+.InnerCell {
+  height: 70%;
+  width: 70%;
+  margin: 15%;
+  border-radius: 50%;
+  background-color: black;
+  /* transition: all linear 500ms; */
+}
+
+.logo {
+  animation: logo-spin infinite 20s linear;
+  height: 40vmin;
+  pointer-events: none;
+}
+
+.header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.link {
+  color: #b318f0;
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
