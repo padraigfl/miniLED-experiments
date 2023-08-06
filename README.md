@@ -1,34 +1,33 @@
-## Usage
+## Experiments in MiniLED (and some in OLED)
 
-Those templates dependencies are maintained via [pnpm](https://pnpm.io) via `pnpm up -Lri`.
+This repo is basically a dumping ground for things I want to do to fiddle with MiniLED and visualisers in general. I feel like there's a lack of fun screensaver type stuff these days and it makes no sense to me given how much better suited OLED screens are to this kind of stuff in terms of power consumption and just general ambiance.
 
-This is the reason you see a `pnpm-lock.yaml`. That being said, any package manager will work. This file can be safely be removed once you clone a template.
+While most people will only have either a very small OLED screen (phone, Switch, tablet), there's quite a lot of people with MiniLED screens on their macbooks. As that's what I have that will probably be my main focus.
 
-```bash
-$ npm install # or pnpm install or yarn install
-```
+## HTML Visualiser
 
-### Learn more on the [Solid Website](https://solidjs.com) and come chat with us on our [Discord](https://discord.com/invite/solidjs)
+Uses the browser AudioContext API to visualise a grid of audio based data on screen.
 
-## Available Scripts
+HTML based approach was taken for the following reasons:
+- MiniLED technology is not operating in the same instantaneous way OLED does, meaning basically everything leaves loads of dimly lit artifacts briefly, by sticking to a grid I'm hoping this can both reduce the impact of these and potentially be refined to a process where there could be a very close to 1:1 relationship between cells and the MiniLEDs on a screen. As they use some level of diffusion this will never be perfect but it doesn't really matter once it's dim and somewhat consistent
+- Restricts me from going crazy like I probably would do with a canvas output
+- Basically every solution I saw for this used canvas and I've a feeling this might be a bit more accessible to a totally different audience than the people who made them.
 
-In the project directory, you can run:
+### TODO
 
-### `npm run dev` or `npm start`
+- clean up the code, loads and loads to do here
+- UI for settings (cell size mainly)
+- FFT adapting to changes in cell sizes
+- Process for handling different visualisers
+- Process for sanitizing the scale of changes
 
-Runs the app in the development mode.<br>
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
-The page will reload if you make edits.<br>
+## Youtube filter tool
 
-### `npm run build`
+Basically a thing to put on a youtube video and have it playing at your desk while you fall asleep without it lighting up the whole room.
 
-Builds the app for production to the `dist` folder.<br>
-It correctly bundles Solid in production mode and optimizes the build for the best performance.
+### TODO
 
-The build is minified and the filenames include the hashes.<br>
-Your app is ready to be deployed!
+- clean up like the other one, maybe standardise the controls UI across things
+- 
 
-## Deployment
-
-You can deploy the `dist` folder to any static host provider (netlify, surge, now, etc.)
