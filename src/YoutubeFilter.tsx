@@ -12,11 +12,12 @@ interface NumberControl {
 
 const NumberControls = (props: { controls: NumberControl[] }) => {
   return (
-    <ul>
+    <ul style={{ padding: '0px', 'list-style-type': 'none' }}>
       {props.controls.map(c => (
-        <li>
+        <li style={{ display: 'flex' }}>
           { c.name }
           <input
+            style={{ 'margin-left': 'auto' }}
             type="range"
             min={c.minValue}
             max={c.maxValue}
@@ -25,6 +26,7 @@ const NumberControls = (props: { controls: NumberControl[] }) => {
             step={c.step || 1}
           />
           <input
+            style={{ width: '60px'}}
             type="number"
             min={c.minValue}
             max={c.maxValue}
@@ -43,13 +45,13 @@ const MIN_BRIGHTNESS = 0.05;
 const MAX_CONTRAST = 10;
 const MIN_CONTRAST = 1;
 const MIN_SATURATION = 0.1;
-const MAX_SATURATION = 9;
+const MAX_SATURATION = 10;
 export const Youtube = () => {
   const [brightness, setBrightness] = createSignal(0.35);
   const [contrast, setContrast] = createSignal(3.2);
   const [saturation, setSaturation] = createSignal(3.1);
   const [blur, setBlur] = createSignal(1);
-  const [isEnabled, setEnabled] = createSignal(false);
+  const [isEnabled, setEnabled] = createSignal(true);
   const numericControls: Accessor<NumberControl[]> = createMemo(() => [
     {
       name: 'brightness',
@@ -72,6 +74,7 @@ export const Youtube = () => {
       setValue: setSaturation,
       minValue: MIN_SATURATION,
       maxValue: MAX_SATURATION,
+      step: 0.1
     },
     {
       name: 'blur',
@@ -95,12 +98,12 @@ export const Youtube = () => {
     focus()
   })
   return (
-    <div>
-      <div id="options" class={controlStyles.hoverVisible} style={{ padding: '4px', 'background-color': 'black', color: 'white', border: '2px solid white', position: 'absolute', width: '20vw', height: '25vw', "z-index": '10' }}>
+    <>
+      <div id="options" class={controlStyles.hoverVisible} style={{ padding: '4px', 'background-color': 'black', color: 'white', border: '2px solid white', position: 'absolute', "z-index": '10', width: '100%', 'max-width': '320px' }}>
         <p>This is a set of basic filters to let youtube videos played with a strong push towards black on screen. Allowing for low light video play in a dark room.</p>
         <p>Brightness is initially applied, so you can darken the image as much as required beyond brightness control limits. Then contrast is applied to kill off lingering slightly lit areas (this can remove a lot of screen bright patches on MiniLED). Finally saturation is applied to bring back some colour removed earlier.</p>
         <NumberControls controls={numericControls()} />
-        <ul>
+        <ul style={{ padding: '0px', 'list-style-type': 'none' }}>
           <li>Youtube ID: <input type="text" value={src()} onChange={e => setSrc(e.target.value)} /></li>
           <li>Is Active: <input type="checkbox" checked={isEnabled()} onClick={e => setEnabled(!isEnabled())} /></li>
         </ul>
@@ -110,11 +113,12 @@ export const Youtube = () => {
           filter: isEnabled()
             ? `brightness(${brightness()}) contrast(${contrast()}) saturate(${saturation()}) blur(${blur()}px)`
             : '',
-          height: '100vh',
-          width: '100vw' 
+          height: 'calc(100vh - 4px)',
+          width: '100vw',
+          border: 'none',
         }}
         src={`https://www.youtube.com/embed/${src()}`}
       />
-    </div>
+    </>
   )
 }
