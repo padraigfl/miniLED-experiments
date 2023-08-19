@@ -12,6 +12,10 @@
   --blocksPerCol: calc(var(--blocks) / var(--ratioW)); */
 }
 
+.NoCursor {
+  cursor: none;
+}
+
 
 .Cell {
   /* transition: all cubic-bezier(0, 0.5, 0.95, 1.28) 1000ms; */

@@ -6,13 +6,13 @@ import styles from './Visualizer.module.css';
 let i = 0;
 let timeoutHandle: number;
 let resizeTimeoutHandle: number;
+let analyser: AnalyserNode;
 let pixels = 2040
-const cells = new Array(pixels).fill(null)
 let audioReady = false;
+let loopTimer: number;
 
 const PIXEL_SIZE = 60
 const getPixelTotal = () => {
-  const aspectRatio = window.innerWidth / window.innerHeight;
   const pixelCols = Math.floor(window.innerWidth / PIXEL_SIZE);
   const pixelRows = Math.floor(window.innerHeight / PIXEL_SIZE);
   const pixels = pixelCols * pixelRows;
@@ -30,9 +30,19 @@ const getStreamObject = () => {
   }
 }
 
+const getFft = () => {
+  // return 2**11
+  return 2**9
+  // for (let i = 15; i > 4; i--) {
+  //   if (pixels < (2**i / 2)) {
+  //     return 2**(i - 1);
+  //   }
+  // }
+  // return 2**5
+}
+
 const audioAnalyserSetup = (stream: MediaStream) => {
   const ac = new AudioContext()
-  console.log('ac')
   const source = ac.createMediaStreamSource(stream);
   const analyser = ac.createAnalyser();
   const gainNode = ac.createGain()
@@ -40,42 +50,40 @@ const audioAnalyserSetup = (stream: MediaStream) => {
   source.connect(gainNode)
   source.connect(analyser);
   analyser.connect(gainNode)
-  analyser.fftSize = 1024;
+  analyser.fftSize = getFft();
   // analyser.minDecibels = -90;
-  analyser.maxDecibels = -50;
-  analyser.minDecibels = -70
+  // analyser.maxDecibels = -40;
+  // analyser.minDecibels = -60
   const bufferLength = analyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
   analyser.getByteTimeDomainData(dataArray);
   let j = 0
   function draw() {
-    if (j % 10 === 0)
-      console.log(`---${j}----`)
     // const drawVisual = requestAnimationFrame(draw);
     analyser.getByteTimeDomainData(dataArray);
+    console.log(analyser.fftSize, pixels)
 
-    const cells = [...document.querySelectorAll('[id^=cell-]')]
+    const cells = [...document.querySelectorAll('[id^=cell-]')] as HTMLElement[]
 
-    console.log(cells.length)
     for (let i = 0; i < bufferLength; i++) {
       if (
-        dataArray[i] < 113
-        || dataArray[i] > 138
+        dataArray[i] < 98
+        || dataArray[i] > 158
       ) {
-        console.log([...dataArray].reduce((a,b) => a+b) / dataArray.length)
         const fade = Math.abs(dataArray[i] - 128)
         let pixelIdx = Math.floor(pixels * (i / bufferLength))
         if (cells[pixelIdx]) {
-          styleCell(cells[pixelIdx], fade*5, dataArray[i])
+          styleCell(cells[pixelIdx], fade*10, dataArray[i])
           setTimeout(() => clearCell(cells[pixelIdx]), 100)
         }
       }
     }
     j++;
 
-    if (j < 10000) {
-      setTimeout(draw, 50)
+    if (loopTimer) {
+      clearTimeout(loopTimer)
     }
+    loopTimer = setTimeout(draw, 100)
   }
   draw()
   return ac;
@@ -103,11 +111,23 @@ const fullSetup = () => {
 }
 
 const Cells = (props: { cellCount: number }) => {
+  const [moving, setMoving] = createSignal()
+  createRenderEffect(() => {
+    let timer: number;
+    const mouseMoveEvent = () => {
+      if (timer) {
+        clearTimeout(timer)
+      }
+      setMoving(true)
+      timer = setTimeout(setMoving, 2000, false)
+    }
+    document.addEventListener('mousemove', mouseMoveEvent)
+  })
   if (!audioReady) {
     fullSetup()
   }
   return (
-    <div class={styles.App} style={`--size: var(${PIXEL_SIZE}px)`}>
+    <div class={`${styles.App} ${moving() ? '': styles.NoCursor}`} style={`--size: var(${PIXEL_SIZE}px);`}>
       {new Array(props.cellCount).fill(1).map((c, i) =>
         <div
           class={styles.Cell}
@@ -131,47 +151,32 @@ const Cells = (props: { cellCount: number }) => {
   )
 }
 
-const clearCell = (cell: Element, decay?: number) => {
+const basicHue = (dataPoint: number, base: number = 0) => (dataPoint + 360 + base) % 360
+
+const clearCell = (cell: HTMLElement, decay?: number) => {
   cell.style.transitionDuration = `${decay ? decay * 3 : 500}ms`
-  cell.childNodes[0].style.transitionDuration = `${decay || 500}ms`
   cell.style.backgroundColor = 'hsla(0,0%,0%,0)'
-  cell.childNodes[0].style.backgroundColor = 'rgba(0,0,0,1)'
-  cell.childNodes[0].style.transform = `scale(1.4)`
+  const childCell = cell.childNodes[0] as HTMLElement;
+  childCell.style.transitionDuration = `${decay || 500}ms`
+  childCell.style.backgroundColor = 'rgba(0,0,0,1)'
+  childCell.style.transform = `scale(1.4)`
 }
 
-const styleCell = (cell: Element, fade?: number, color?: number) => {
+const styleCell = (cell: HTMLElement, fade?: number, color: number = 0) => {
   cell.style.transitionDuration = `${5}ms`
-  cell.childNodes[0].style.transitionDuration = `${5}ms`
-  if (!color) {
-    cell.style.backgroundColor = 'rgba(0,0,255,0.5)'
-    cell.childNodes[0].style.backgroundColor = 'rgba(255,0,0,1)'
-  } else {
-    cell.childNodes[0].style.transform = `scale(0.1)`
-    cell.childNodes[0].style.backgroundColor = 'rgba(0,0,0,0.4)'
-    cell.childNodes[0].style.transitionDuration = `${(fade || 100)}ms`
-    cell.childNodes[0].style.transform = `scale(1)`
-    cell.style.backgroundColor = `hsla(${(color - 120) % 360}, 50%, 50%, 1)`
-  }
-
+  cell.style.filter = 'blur(4px)';
+  cell.style.backgroundColor = `hsla(${basicHue(color, 0)}, 50%, 10%, 1)`
+  const childCell = cell.childNodes[0] as HTMLElement;
+  childCell.style.transitionDuration = `${5}ms`
+  childCell.style.transform = `scale(0.1)`
+  childCell.style.backgroundColor = 'rgba(0,0,0,0.4)'
+  childCell.style.transitionDuration = `${(fade || 100)}ms`
+  childCell.style.transform = `scale(1)`
 }
 
 export const Visualizer: Component = () => {
   const [resolution, setResolution] = createSignal(getPixelTotal())
-  createRenderEffect(() => {
-    if (Date.now() > 10) {
-      return;
-    }
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle)
-    }
-    const func = () => {
-      const cells = [...document.querySelectorAll('[id^=cell-]')]
-      clearCell(cells[i % resolution()])
-      styleCell(cells[++i % resolution()])
-      setTimeout(func, 50)
-    }
-    timeoutHandle = setTimeout(func, 250)
-  })
+
   createRenderEffect(() => {
     const ro = new ResizeObserver(() => {
       if (resizeTimeoutHandle) {
@@ -179,12 +184,16 @@ export const Visualizer: Component = () => {
       }
       resizeTimeoutHandle = setTimeout(() => {
         console.log('resize')
-        setResolution(getPixelTotal())
+        const newRes = getPixelTotal()
+        pixels = newRes
+        if (analyser) {
+          analyser.fftSize = getFft()
+        }
+        setResolution(newRes)
       }, 50)
     })
     ro.observe(document.body)
   })
-  pixels = resolution()
   return (
     <Cells cellCount={resolution()} />
   );

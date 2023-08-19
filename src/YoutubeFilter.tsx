@@ -1,4 +1,4 @@
-import { Accessor, createMemo, createRenderEffect, createSignal, onMount } from "solid-js"
+import { Accessor, createMemo, createSignal, onMount } from "solid-js"
 import controlStyles from './Controls.module.css';
 
 interface NumberControl {
@@ -86,13 +86,25 @@ export const Youtube = () => {
   ])
   const [src, setSrc] = createSignal('xXPSe57pOss')
 
+  const parsedSource = createMemo(() => {
+    const isYoutube = [`youtube.`, `youtu.be`].some(youtubePattern => src().includes(youtubePattern))
+      || src().trim().match(/^[A-Za-z0-9]{9,13}$/)
+    if (isYoutube) {
+      const youtubeId = src().match(/[A-Za-z0-9]{9,13}/)?.[0]
+      if (youtubeId) {
+        return `https://www.youtube.com/embed/${youtubeId}`
+      }
+    }
+    return src()
+  })
+
   onMount(() => {
     const focus = () => {
       console.log('mount')
       const optionsEl = document.querySelector('#options')
       setTimeout(() => {
-        const focusableOption = optionsEl?.querySelector('input[type=checkbox]')
-        focusableOption.focus()
+        const focusableOption = optionsEl?.querySelector('input[type=checkbox]') as HTMLElement
+        focusableOption?.focus?.()
       }, 50)
     }
     focus()
@@ -104,7 +116,7 @@ export const Youtube = () => {
         <p>Brightness is initially applied, so you can darken the image as much as required beyond brightness control limits. Then contrast is applied to kill off lingering slightly lit areas (this can remove a lot of screen bright patches on MiniLED). Finally saturation is applied to bring back some colour removed earlier.</p>
         <NumberControls controls={numericControls()} />
         <ul style={{ padding: '0px', 'list-style-type': 'none' }}>
-          <li>Youtube ID: <input type="text" value={src()} onChange={e => setSrc(e.target.value)} /></li>
+          <li>URL/Youtube ID: <input type="text" value={src()} onChange={e => setSrc(e.target.value)} /></li>
           <li>Is Active: <input type="checkbox" checked={isEnabled()} onClick={e => setEnabled(!isEnabled())} /></li>
         </ul>
       </div>
@@ -117,7 +129,8 @@ export const Youtube = () => {
           width: '100vw',
           border: 'none',
         }}
-        src={`https://www.youtube.com/embed/${src()}`}
+        allow="camera;microphone"
+        src={parsedSource()}
       />
     </>
   )
