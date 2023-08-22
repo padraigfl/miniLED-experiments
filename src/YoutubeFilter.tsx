@@ -87,13 +87,17 @@ export const Youtube = () => {
   const [src, setSrc] = createSignal('xXPSe57pOss')
 
   const parsedSource = createMemo(() => {
+    const source = src()
     const isYoutube = [`youtube.`, `youtu.be`].some(youtubePattern => src().includes(youtubePattern))
-      || src().trim().match(/^[A-Za-z0-9]{9,13}$/)
+      || source.trim().match(/^[A-Za-z0-9]{9,13}$/)
     if (isYoutube) {
       const youtubeId = src().match(/[A-Za-z0-9]{9,13}/)?.[0]
       if (youtubeId) {
         return `https://www.youtube.com/embed/${youtubeId}`
       }
+    }
+    if (!source.match(/^https?/)) {
+      return `https://${source}`
     }
     return src()
   })
@@ -132,6 +136,7 @@ export const Youtube = () => {
         allow="camera;microphone"
         src={parsedSource()}
       />
+      <div style={{ width: '25px', height: '25px', position: 'absolute', bottom: '0px', left: '0px', cursor: 'none' }} />
     </>
   )
 }
