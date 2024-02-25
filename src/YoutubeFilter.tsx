@@ -2,6 +2,7 @@ import { Accessor, createMemo, createSignal, onMount } from "solid-js"
 import controlStyles from './Controls.module.css';
 import { NumberControls } from "./filterControls";
 
+
 interface NumberControl {
   name: string;
   value: number;

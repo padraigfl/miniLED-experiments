@@ -1,3 +1,3 @@
-declare module butterchurn {}
+declare module 'butterchurn'
 
-declare module butterchurnPresets {}
+declare module 'butterchurn-presets'
