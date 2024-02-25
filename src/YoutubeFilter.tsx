@@ -1,5 +1,6 @@
 import { Accessor, createMemo, createSignal, onMount } from "solid-js"
 import controlStyles from './Controls.module.css';
+import { NumberControls } from "./filterControls";
 
 interface NumberControl {
   name: string;
@@ -10,35 +11,6 @@ interface NumberControl {
   step?: number
 }
 
-const NumberControls = (props: { controls: NumberControl[] }) => {
-  return (
-    <ul style={{ padding: '0px', 'list-style-type': 'none' }}>
-      {props.controls.map(c => (
-        <li style={{ display: 'flex' }}>
-          { c.name }
-          <input
-            style={{ 'margin-left': 'auto' }}
-            type="range"
-            min={c.minValue}
-            max={c.maxValue}
-            value={c.value}
-            onChange={e => c.setValue(+e.target.value)}
-            step={c.step || 1}
-          />
-          <input
-            style={{ width: '60px'}}
-            type="number"
-            min={c.minValue}
-            max={c.maxValue}
-            value={c.value}
-            onChange={e => c.setValue(+e.target.value)}
-            step={c.step || 1}
-          />
-        </li>
-      ))}
-    </ul>
-  )
-}
 
 const MAX_BRIGHTNESS = 1;
 const MIN_BRIGHTNESS = 0.05;

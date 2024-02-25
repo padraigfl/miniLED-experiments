@@ -6,6 +6,7 @@ import { Visualizer } from './Visualizer';
 import { App } from './App';
 import { Router, Route, Routes } from "@solidjs/router";
 import { Youtube } from './YoutubeFilter';
+import { Milkdrop } from './Milkdrop';
 
 const root = document.getElementById('root');
 
@@ -23,6 +24,7 @@ render(
         <Route path="/" component={App} />
         <Route path="/video-filter" component={Youtube} />
         <Route path="/visualizer" component={Visualizer} /> {/* 👈 Define the home page route */}
+        <Route path="/milkdrop" component={Milkdrop} />
       </Routes>
     </Router>
   ),
