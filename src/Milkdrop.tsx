@@ -193,6 +193,11 @@ export const Milkdrop = () => {
 
   const requestFullScreen = () => {
     document.getElementById('milkdrop-page')?.requestFullscreen()
+      ?.then(() => { console.log('granted')})
+      ?.catch(e1 => {
+        document.getElementsByTagName('canvas')[0]?.requestFullscreen()
+          ?.catch(e2 => { window.alert(`fullscreen not granted ${JSON.stringify(e2)} -- Trace: ${JSON.stringify(e1)}`); })
+      })
   }
   const [menuVisible, setMenuVisible] = createSignal(false);
 
