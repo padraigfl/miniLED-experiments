@@ -1,7 +1,7 @@
 import butterchurn from 'butterchurn';
 import butterchurnPresets from 'butterchurn-presets';
 import { createEffect, createSignal } from 'solid-js';
-import { NumberControls, createFilterSettings } from './filterControls';
+import { NumberControls } from './filterControls';
  
 
 type FilterViewModes = 'all' | 'favourites' | 'ommitted' | 'all-but-omitted'
@@ -37,7 +37,6 @@ const SelectInput = (props: { text: string, options: (string | number)[], select
 let timeoutRef: number;
 const clearLoopAction = () => {
   if (timeoutRef) {
-    console.log('clear timeout');
     clearTimeout(timeoutRef);
   }
 }
@@ -72,7 +71,6 @@ function connectMicAudio(sourceNode: AudioNode, visualizer: any) {
 const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => void; blendSpeed: number; preset: string; frameRate: number; meshSize: [number, number], canvasSize: number }) => {
   const [activePreset, setActivePreset] = createSignal(props.preset);
   const [visualizer, setVisualizer] = createSignal<any>();
-  console.log('\nvisualizer render\n`')
   createEffect(() => {
     if (visualizer()) {
       props.onInitialize();
@@ -96,7 +94,6 @@ const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => voi
       meshWidth: 24,
     });
     setVisualizer(vis);
-    console.log(vis);
     navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream: MediaStream) => {
@@ -122,7 +119,7 @@ const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => voi
 
   return (
     <>
-      <canvas style={{  position: 'absolute', top: '0px', width: '100vw', height: '100vh', "pointer-events": 'none', filter: props.filterStyle || 'brightness(0.5) contrast(2) brightness(2)' }}/>
+      <canvas style={{  position: 'absolute', top: '0px', width: '100vw', height: '100vh', "pointer-events": 'none', filter: props.filterStyle }}/>
       { !visualizer() && <button onClick={getAudioNode}>Begin</button> }
     </>
   );
@@ -146,6 +143,9 @@ export const Milkdrop = () => {
   const [canvasSize, setCanvasSize] = createSignal<SixIndexes>(3);
   const [frameRate, setFrameRate] = createSignal<number>(15);
 
+  // derived filter
+  const [filterStyle, setFilterStyle] = createSignal('');
+
   createEffect(() => {
     // setPresetList(presetList().filter())
   }, [filterListMode])
@@ -154,7 +154,7 @@ export const Milkdrop = () => {
     if (autoUpdate()) {
       setAutoUpdate(autoUpdatePeriodS());
     }
-  }, [autoUpdatePeriodS, autoUpdate])
+  })
 
   createEffect(() => {
     if (!initialized()) {
@@ -164,7 +164,6 @@ export const Milkdrop = () => {
       timeoutRef = setTimeout(() => {
         const autoUpdatePresetLoop = () => {
           if (!autoUpdate()) {
-            console.log('no update')
             return;
           }
           clearLoopAction();
@@ -176,9 +175,7 @@ export const Milkdrop = () => {
           const newPresetIdx = selectedIdx >= currentPreset ? (selectedIdx + 1 % presetCount) : selectedIdx;
           setActivePreset(newPresetIdx);
           if (updatePeriod) {
-            console.log('new timeout', updatePeriod * 1000)
             timeoutRef = setTimeout(() => {
-              console.log('timed out');
               autoUpdatePresetLoop()
             }, updatePeriod * 1000);
           }
@@ -186,18 +183,32 @@ export const Milkdrop = () => {
         autoUpdatePresetLoop();
       }, autoUpdate());
     }
-  }, [initialized, activePreset, autoUpdate, isRandomized]);
+  });
 
   createEffect(() => {
     if (!autoUpdate()) {
       clearLoopAction()
     }
-  }, [autoUpdate()]);
+  });
 
-  const [filterState] = createSignal(createFilterSettings());
+  const requestFullScreen = () => {
+    document.getElementById('milkdrop-page')?.requestFullscreen()
+  }
+  const [menuVisible, setMenuVisible] = createSignal(false);
+
+  createEffect(() => {
+    const menuOpacityListener = () => setMenuVisible(true);
+    document.addEventListener('mousemove', menuOpacityListener);
+    return () => document.removeEventListener('mousemove', menuOpacityListener);
+  })
+  createEffect(() => {
+    if (menuVisible()) {
+      setTimeout(() => { setMenuVisible(false) }, 10000)
+    }
+  })
 
   return (
-    <>
+    <div id="milkdrop-page">
       <MilkdropRenderer
         frameRate={frameRate()}
         meshSize={meshSizes[mesh()]}
@@ -205,11 +216,12 @@ export const Milkdrop = () => {
         blendSpeed={presetBlendSpeed()}
         preset={presetList()[activePreset()]}
         onInitialize={() => setInitialized(true)}
-        filterStyle={filterState().filterCssObject}
+        filterStyle={filterStyle()}
       />
       { initialized()
         ? (
-          <div style={{ position: "relative", "max-width": "320px", "max-height": "100vh", overflow: "auto"  }}>
+          <div style={{ position: "relative", "max-width": "320px", "max-height": "100vh", overflow: "auto", opacity: menuVisible() ? 1 : 0, transition: `all linear ${menuVisible() ? 0 : 5}s`, "pointer-events": !menuVisible() ? 'none' : undefined }}>
+            <button onClick={requestFullScreen}>Full screen</button>
             <h2>Preset settings</h2>
             <p style={{ background: 'black', outline: '1px solid white' }}>
               Preset filter rule: <br />
@@ -232,13 +244,11 @@ export const Milkdrop = () => {
             <NumericInput text="Frame Rate" min={1} max={120} value={frameRate()} update={setFrameRate} />
             <SelectInput text="Canvas Size" selectedIdx={canvasSize()} options={canvasSizes} update={setCanvasSize} />
             <h2>Filter settings</h2>
-            <NumberControls controls={filterState().numericControls()} />
-            <p style={{ background: 'black', outline: '1px solid white' }}>Filters active: <input type="checkbox" checked={filterState().isEnabled()} onChange={() => filterState().setEnabled(!filterState().isEnabled())} /></p>
-            {filterState().filterCssObject}
+            <NumberControls setFilterStyle={setFilterStyle} />
           </div>
         )
         : null
       }
-    </>
+    </div>
   )
 }

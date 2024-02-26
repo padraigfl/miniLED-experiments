@@ -1,4 +1,4 @@
-import { Accessor, createMemo, createSignal } from "solid-js";
+import { Accessor, createEffect, createMemo, createSignal } from "solid-js";
 
 const MAX_BRIGHTNESS = 1;
 const MIN_BRIGHTNESS = 0.05;
@@ -17,16 +17,23 @@ interface NumberControl {
   step?: number
 }
 
-export const createFilterSettings = () => {
-  const [brightness, setBrightness] = createSignal(0.5);
-  const [contrast, setContrast] = createSignal(3.2);
-  const [saturation, setSaturation] = createSignal(3.1);
-  const [blur, setBlur] = createSignal(1);
-  const [isEnabled, setEnabled] = createSignal(false);
+export const NumberControls = (props: { setFilterStyle: (str: string) => void }) => {
+  const [filterState, setFilterState] = createSignal({
+    brightness: 0.5,
+    contrast: 3.2,
+    saturation: 3.1,
+    blur: 1,
+    isEnabled: false,
+  });
+  const setBrightness = (n: number) => setFilterState(f => ({ ...f, brightness: n }))
+  const setContrast = (n: number) => setFilterState(f => ({ ...f, contrast: n }));
+  const setSaturation = (n: number) => setFilterState(f => ({ ...f, saturation: n }));
+  const setBlur = (n: number) => setFilterState(f => ({ ...f, blur: n }));;
+  const setEnabled = (n: boolean) => setFilterState(f => ({ ...f, isEnabled: n }));
   const numericControls: Accessor<NumberControl[]> = createMemo(() => [
     {
       name: 'brightness',
-      value: brightness(),
+      value: filterState().brightness,
       setValue: setBrightness,
       minValue: MIN_BRIGHTNESS,
       maxValue: MAX_BRIGHTNESS,
@@ -34,14 +41,14 @@ export const createFilterSettings = () => {
     },
     {
       name: 'contrast',
-      value: contrast(),
+      value: filterState().contrast,
       setValue: setContrast,
       minValue: MIN_CONTRAST,
       maxValue: MAX_CONTRAST,
     },
     {
       name: 'saturate',
-      value: saturation(),
+      value: filterState().saturation,
       setValue: setSaturation,
       minValue: MIN_SATURATION,
       maxValue: MAX_SATURATION,
@@ -49,34 +56,23 @@ export const createFilterSettings = () => {
     },
     {
       name: 'blur',
-      value: blur(),
+      value: filterState().blur,
       setValue: setBlur,
       minValue: 1,
       maxValue: 10,
     }
   ])
-  return {
-    brightness,
-    setBrightness,
-    contrast,
-    setContrast,
-    saturation,
-    setSaturation,
-    blur,
-    setBlur,
-    isEnabled,
-    setEnabled,
-    numericControls,
-    filterCssObject: isEnabled()
-      ? `brightness(${brightness()}) contrast(${contrast()}) saturate(${saturation()}) blur(${blur()}px)`
-      : ''
-  }
-}
 
-export const NumberControls = (props: { controls: NumberControl[] }) => {
+  createEffect(() => {
+    if (filterState().isEnabled) {
+      props.setFilterStyle(`brightness(${filterState().brightness}) contrast(${filterState().contrast}) saturate(${filterState().saturation}) blur(${filterState().blur}px)`);
+    } else {
+      props.setFilterStyle('');
+    }
+  })
   return (
     <ul style={{ padding: '0px', 'list-style-type': 'none' }}>
-      {props.controls.map(c => (
+      {numericControls().map(c => (
         <li style={{ display: 'flex' }}>
           { c.name }
           <input
@@ -99,6 +95,13 @@ export const NumberControls = (props: { controls: NumberControl[] }) => {
           />
         </li>
       ))}
+      <li>
+        <p style={{ background: 'black', outline: '1px solid white' }}>Filters active: <input type="checkbox" checked={filterState().isEnabled} onChange={() => setEnabled(!filterState().isEnabled)} /></p>
+        {filterState().isEnabled
+          ? `brightness(${filterState().brightness}) contrast(${filterState().contrast}) saturate(${filterState().saturation}) blur(${filterState().blur}px)`
+          : ''
+        }
+      </li>
     </ul>
   )
 }
