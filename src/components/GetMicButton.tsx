@@ -7,10 +7,9 @@ export const GetMicNodeButton = (props: { setNode: (ac: AudioContext, m: MediaSt
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<Error | null>();
   const getAudioNode = () => {
-    if (audioContext) {
-      audioContext.close()
+    if (!audioContext) {
+      audioContext = new AudioContext();
     }
-    audioContext = new AudioContext();
     setLoading(true)
     return navigator.mediaDevices
       .getUserMedia({ audio: true })
@@ -33,5 +32,5 @@ export const GetMicNodeButton = (props: { setNode: (ac: AudioContext, m: MediaSt
     setError(null);
   }
 
-  return <button onClick={getAudioNode} disabled={loading()}>Get Mic{loading() ? '...' : null}</button>
+  return <button type="button" onClick={getAudioNode} disabled={loading()}>Get Mic{loading() ? '...' : null}</button>
 }

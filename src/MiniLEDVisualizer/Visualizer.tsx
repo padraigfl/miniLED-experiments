@@ -1,12 +1,10 @@
 import { Component, createRenderEffect, createSignal } from 'solid-js';
-
 import styles from './Visualizer.module.css';
 import { GetMicNodeButton } from '../components/GetMicButton';
 
 let resizeTimeoutHandle: number;
-let analyser: AnalyserNode;
-let pixels = 1020
-let audioContext: AudioContext;
+let analyserSource: AnalyserNode;
+let pixels = 1020;
 
 const PIXEL_SIZE = 80
 const getPixelTotal = () => {
@@ -16,8 +14,6 @@ const getPixelTotal = () => {
   return pixels;
 }
 
-
-
 const getFft = () => {
   for (let i = 13; i > 4; i--) {
     if (pixels > (2**i / 2)) {
@@ -26,17 +22,23 @@ const getFft = () => {
   }
   return 2 ** 7;
 }
+let ac: AudioContext;
 
-const audioAnalyserSetup = (streamNode: MediaStreamAudioSourceNode, framerate = 10, usesTimeout?: boolean) => {
+const audioAnalyserSetup = async (framerate = 10, usesTimeout?: boolean) => {
+  const audioContext = new AudioContext()
+  const streamNode = await navigator.mediaDevices
+  .getUserMedia({ audio: true })
+  .then((stream: MediaStream) =>  audioContext.createMediaStreamSource(stream))
   const analyser = audioContext.createAnalyser();
+  analyserSource = analyser;
   const gainNode = audioContext.createGain();
-  gainNode.gain.value = 300// 10 %
+  gainNode.gain.value = 20// 10 %
+  ac = audioContext;
   audioContext.resume();
-  streamNode.connect(gainNode)
+  streamNode.connect(gainNode);
   streamNode.connect(analyser);
   analyser.connect(gainNode);
   analyser.fftSize = getFft();
-  const pixelRatio = analyser.fftSize / pixels;
   // analyser.minDecibels = -90;
   // analyser.maxDecibels = -40;
   // analyser.minDecibels = -60
@@ -48,6 +50,7 @@ const audioAnalyserSetup = (streamNode: MediaStreamAudioSourceNode, framerate = 
   const last10largest = [0,0,0,0,0,0,0,0,0,0]
   let timerRef: number;
   const interval = 1000/framerate;
+  let initialRun = true;
   function draw() {
     if (!usesTimeout) {
       const now = Date.now();
@@ -56,6 +59,8 @@ const audioAnalyserSetup = (streamNode: MediaStreamAudioSourceNode, framerate = 
         return;
       }
     }
+    const pixelRatio = bufferLength / pixels;
+    // analyser.getByteFrequencyData(dataArray);
     analyser.getByteTimeDomainData(dataArray);
     const cells = [...document.querySelectorAll('[id^=cell-]')] as HTMLElement[]
     const largestDeviation = dataArray.reduce((a,b) => {
@@ -70,14 +75,34 @@ const audioAnalyserSetup = (streamNode: MediaStreamAudioSourceNode, framerate = 
     const diffToUse = Math.ceil(last10largest.reduce((a,b) => a > b ? a : b) / 2)
     console.log(last10largest);
     console.log('diff to use: ',diffToUse)
-    // skip only to figure that matches number of pixels
-    for (let i = 0; i < bufferLength && diffToUse > 2; i+= Math.floor(pixelRatio)) {
+    for (let i = 0; i < pixels; i++) {
+      const dataIdx = dataArray[(bufferLength / Math.floor(pixelRatio)) * i];
+
+    console.log({
+      fft: analyser.fftSize,
+      bufferLength,
+      pixelRatio,
+      pixels,
+    });
+      const dataValue = dataArray[dataIdx];
+      if (
+        dataValue < 128 - diffToUse
+        || dataValue > 128 + diffToUse
+      ) {
+        const fade = Math.abs(dataValue - 128)
+        if (cells[i]) {
+          styleCell(cells[i], fade, (diffToUse / fade) * 120)
+          setTimeout(() => clearCell(cells[i]), fade*10)
+        }
+      }
+    }
+    for (let i = 0; i < bufferLength && diffToUse > 2; i += Math.floor(pixelRatio)) {
       if (
         dataArray[i] < 128 - diffToUse
         || dataArray[i] > 128 + diffToUse
       ) {
         const fade = Math.abs(dataArray[i] - 128)
-        let pixelIdx = Math.floor(pixels * (i / bufferLength));
+        let pixelIdx = Math.floor(i / bufferLength * (pixels));
         if (cells[pixelIdx]) {
           styleCell(cells[pixelIdx], fade, (diffToUse / fade) * 120)
           setTimeout(() => clearCell(cells[pixelIdx]), fade*10)
@@ -113,8 +138,7 @@ const Cells = (props: { cellCount: number, hasChildCells: boolean }) => {
     <div class={`${styles.App} ${moving() ? '': styles.NoCursor}`} style={`--size: var(${PIXEL_SIZE}px);`}>
       {!initialized()
         ? <GetMicNodeButton setNode={(ac, micNode) => {
-          audioContext = ac;
-          audioAnalyserSetup(micNode, 1, true)
+          audioAnalyserSetup(30, true)
           setInitialized(true)
         }}/>
         : new Array(props.cellCount).fill(1).map((c, i) =>
@@ -143,6 +167,31 @@ const Cells = (props: { cellCount: number, hasChildCells: boolean }) => {
   )
 }
 
+export const Visualizer: Component = () => {
+  const [resolution, setResolution] = createSignal(getPixelTotal())
+
+  createRenderEffect(() => {
+    const ro = new ResizeObserver(() => {
+      if (resizeTimeoutHandle) {
+        clearTimeout(resizeTimeoutHandle)
+      }
+      resizeTimeoutHandle = setTimeout(() => {
+        const newRes = getPixelTotal()
+        pixels = newRes
+        if (analyserSource) {
+          analyserSource.fftSize = getFft()
+        }
+        setResolution(newRes)
+      }, 50)
+    })
+    ro.observe(document.body)
+  })
+  return (
+    <Cells cellCount={resolution()} hasChildCells={false} />
+  );
+};
+
+
 const basicHue = (dataPoint: number, base: number = 0) => (dataPoint * 15 + 360 + base) % 360
 
 const clearCell = (cell: HTMLElement, decay?: number, hasChildCell?: boolean) => {
@@ -169,27 +218,3 @@ const styleCell = (cell: HTMLElement, fade?: number, color: number = 0, hasChild
     childCell.style.transform = `scale(1)`
   }
 }
-
-export const Visualizer: Component = () => {
-  const [resolution, setResolution] = createSignal(getPixelTotal())
-
-  createRenderEffect(() => {
-    const ro = new ResizeObserver(() => {
-      if (resizeTimeoutHandle) {
-        clearTimeout(resizeTimeoutHandle)
-      }
-      resizeTimeoutHandle = setTimeout(() => {
-        const newRes = getPixelTotal()
-        pixels = newRes
-        if (analyser) {
-          analyser.fftSize = getFft()
-        }
-        setResolution(newRes)
-      }, 50)
-    })
-    ro.observe(document.body)
-  })
-  return (
-    <Cells cellCount={resolution()} hasChildCells={false} />
-  );
-};
