@@ -2,7 +2,6 @@ import butterchurn from 'butterchurn';
 import butterchurnPresets from 'butterchurn-presets';
 import { createEffect, createSignal } from 'solid-js';
 import { NumberControls } from './filterControls';
- 
 
 type FilterViewModes = 'all' | 'favourites' | 'ommitted' | 'all-but-omitted'
 
@@ -44,11 +43,12 @@ const clearLoopAction = () => {
 const allPresets = butterchurnPresets.getPresets();
 let audioContext: AudioContext;
 
+let refreshRate = 50;
 function startRenderer(visualizer: any) {
   let then = Date.now();
   const continueRenderer = () => {
     const now = Date.now();
-    if ((now - then) > 50) {
+    if ((now - then) > refreshRate) {
       visualizer.render();
       then = now;
     }
@@ -85,13 +85,15 @@ const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => voi
       audioContext = new AudioContext();
     }
     const canvas = document.getElementsByTagName('canvas')[0]
-    const vis = butterchurn.createVisualizer(audioContext, canvas , {
-      width: window.innerWidth / 4,
-      height: window.innerHeight / 4,
+    const vis = butterchurn.createVisualizer(
+      audioContext,
+      canvas , {
+      width: window.innerWidth * props.canvasSize,
+      height: window.innerHeight * props.canvasSize,
       pixelRatio: 1,
       textureRatio: 1,
-      meshHeight: 18,
-      meshWidth: 24,
+      meshHeight: props.meshSize[0],
+      meshWidth: props.meshSize[1],
     });
     setVisualizer(vis);
     navigator.mediaDevices
@@ -99,7 +101,7 @@ const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => voi
       .then((stream: MediaStream) => {
         const micSourceNode = audioContext.createMediaStreamSource(stream);;
         connectMicAudio(micSourceNode, vis);
-      })
+      });
   }
 
   createEffect(() => {
@@ -125,30 +127,48 @@ const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => voi
   );
 };
 
+const getSavedKey = (key: string) => localStorage.getItem(key) || '';
+const updateSavedKey = (key: string, value: any) => localStorage.setItem(key, `${value}`);
+const appendSavedKey = (key: string, value: string) => {
+  const currentValue = JSON.parse(localStorage.getItem('key') || '[]');
+  localStorage.setItem(key, JSON.stringify([...currentValue, value ]));
+}
+const removeFromSavedKey = (key: string, value: string) => {
+  const currentValue = JSON.parse(localStorage.getItem('key') || '[]');
+  localStorage.setItem(key, JSON.stringify(JSON.parse(localStorage.getItem('key') || '[]').filter((v: any) => v !== value)));
+}
+
 export const Milkdrop = () => {
   // Status info
   const [initialized, setInitialized] = createSignal(false);
 
   // Preset states
   const [presetList, setPresetList] = createSignal(Object.keys(allPresets)); // full list of presets, possible not needed
-  const [autoUpdatePeriodS, setAutoUpdatePeriodS] = createSignal(15); // how frequent to update preset selection, 0 = off
-  const [autoUpdate, setAutoUpdate] = createSignal(autoUpdatePeriodS());
-  const [isRandomized, setRandomizeStatus] = createSignal(true);
+  const [autoUpdatePeriodS, setAutoUpdatePeriodS] = createSignal(+getSavedKey('autoUpdatePeriod') || 15); // how frequent to update preset selection, 0 = off
+  const [autoUpdate, setAutoUpdate] = createSignal(+getSavedKey('autoUpdate') || 0);
+  const [isRandomized, setRandomizeStatus] = createSignal(!!getSavedKey('isRandomized'));
   const [filterListMode, setFilterListMode] = createSignal<FilterViewModes>('all'); // for disabling unliked filters from view state
   const [activePreset, setActivePreset] = createSignal(20); // the current filter
-  const [presetBlendSpeed, setPresetBlendSpeed] = createSignal(1);
+  const [presetBlendSpeed, setPresetBlendSpeed] = createSignal(+getSavedKey('presetBlendSpeed') || 1);
 
   // Performance states
-  const [mesh, setMesh] = createSignal<SixIndexes>(5);
-  const [canvasSize, setCanvasSize] = createSignal<SixIndexes>(3);
-  const [frameRate, setFrameRate] = createSignal<number>(15);
+  const [mesh, setMesh] = createSignal<SixIndexes>(+getSavedKey('mesh') as SixIndexes || 5);
+  const [canvasSize, setCanvasSize] = createSignal<SixIndexes>(+getSavedKey('canvasSize') as SixIndexes || 3);
+  const [frameRate, setFrameRate] = createSignal<number>(+getSavedKey('frameRate') || 15);
 
   // derived filter
   const [filterStyle, setFilterStyle] = createSignal('');
 
   createEffect(() => {
-    // setPresetList(presetList().filter())
-  }, [filterListMode])
+    updateSavedKey('autoUpdatePeriod', autoUpdatePeriodS());
+    updateSavedKey('autoUpdate', autoUpdate() ? 'true' : '');
+    updateSavedKey('isRandomized', isRandomized() ? 'true' : '');
+    updateSavedKey('presetBlendSpeed', presetBlendSpeed());
+    updateSavedKey('mesh', mesh());
+    updateSavedKey('canvasSize', canvasSize());
+    updateSavedKey('frameRate', frameRate());
+    refreshRate = 1000 / frameRate();
+  });
 
   createEffect(() => {
     if (autoUpdate()) {

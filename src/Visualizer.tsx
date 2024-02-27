@@ -7,11 +7,11 @@ let i = 0;
 let timeoutHandle: number;
 let resizeTimeoutHandle: number;
 let analyser: AnalyserNode;
-let pixels = 2040
+let pixels = 1020
 let audioReady = false;
 let loopTimer: number;
 
-const PIXEL_SIZE = 60
+const PIXEL_SIZE = 80
 const getPixelTotal = () => {
   const pixelCols = Math.floor(window.innerWidth / PIXEL_SIZE);
   const pixelRows = Math.floor(window.innerHeight / PIXEL_SIZE);
@@ -21,7 +21,6 @@ const getPixelTotal = () => {
 
 const getStreamObject = () => {
   if (navigator.mediaDevices) {
-    console.log("getUserMedia supported.");
     return navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream: MediaStream) => {
@@ -31,14 +30,12 @@ const getStreamObject = () => {
 }
 
 const getFft = () => {
-  // return 2**11
-  return 2**9
-  // for (let i = 15; i > 4; i--) {
-  //   if (pixels < (2**i / 2)) {
-  //     return 2**(i - 1);
-  //   }
-  // }
-  // return 2**5
+  for (let i = 15; i > 4; i--) {
+    if (pixels < (2**i / 2)) {
+      return 2**(i-4);
+    }
+  }
+  return 2 ** 7;
 }
 
 const audioAnalyserSetup = (stream: MediaStream) => {
@@ -46,11 +43,12 @@ const audioAnalyserSetup = (stream: MediaStream) => {
   const source = ac.createMediaStreamSource(stream);
   const analyser = ac.createAnalyser();
   const gainNode = ac.createGain()
-  gainNode.gain.value = 1 // 10 %
+  gainNode.gain.value = 200// 10 %
   source.connect(gainNode)
   source.connect(analyser);
   analyser.connect(gainNode)
   analyser.fftSize = getFft();
+  const pixelRatio = analyser.fftSize / pixels;
   // analyser.minDecibels = -90;
   // analyser.maxDecibels = -40;
   // analyser.minDecibels = -60
@@ -58,20 +56,37 @@ const audioAnalyserSetup = (stream: MediaStream) => {
   const dataArray = new Uint8Array(bufferLength);
   analyser.getByteTimeDomainData(dataArray);
   let j = 0
+  let then = 0;
+  const last10largest = [0,0,0,0,0,0,0,0,0,0]
   function draw() {
     // const drawVisual = requestAnimationFrame(draw);
+    const now = Date.now();
+    if ((now - then) < 50) {
+      requestAnimationFrame(draw);
+      return;
+    }
     analyser.getByteTimeDomainData(dataArray);
-    console.log(analyser.fftSize, pixels)
+    console.log('fft: ', analyser.fftSize, ';pixels: ', pixels)
 
     const cells = [...document.querySelectorAll('[id^=cell-]')] as HTMLElement[]
-
-    for (let i = 0; i < bufferLength; i++) {
+    const largestDeviation = dataArray.reduce((a,b) => {
+      const diffA = Math.abs(128 - a)
+      const diffB = Math.abs(128 - b)
+      return diffA > diffB ? diffA : diffB;
+    });
+    console.log('largest: ', largestDeviation, '; bufferLength: ', bufferLength)
+    last10largest.shift()
+    last10largest.push(largestDeviation);
+    const diffToUse = Math.ceil(last10largest.reduce((a,b) => a > b ? a : b) / 4)
+    console.log(last10largest);
+    // skip only to figure that matches number of pixels
+    for (let i = 0; i < bufferLength; i+= Math.floor(pixelRatio)) {
       if (
-        dataArray[i] < 98
-        || dataArray[i] > 158
+        dataArray[i] < 128 - diffToUse
+        || dataArray[i] > 128 + diffToUse
       ) {
         const fade = Math.abs(dataArray[i] - 128)
-        let pixelIdx = Math.floor(pixels * (i / bufferLength))
+        let pixelIdx = Math.floor(pixels * (i / bufferLength));
         if (cells[pixelIdx]) {
           styleCell(cells[pixelIdx], fade*10, dataArray[i])
           setTimeout(() => clearCell(cells[pixelIdx]), 100)
@@ -79,11 +94,7 @@ const audioAnalyserSetup = (stream: MediaStream) => {
       }
     }
     j++;
-
-    if (loopTimer) {
-      clearTimeout(loopTimer)
-    }
-    loopTimer = setTimeout(draw, 100)
+    requestAnimationFrame(draw)
   }
   draw()
   return ac;
@@ -96,9 +107,7 @@ const fullSetup = () => {
   } else {
     return;
   }
-  console.log('test')
   if (!!setup) {
-    console.log('setup')
     return
   }
   getStreamObject?.()
@@ -151,7 +160,7 @@ const Cells = (props: { cellCount: number }) => {
   )
 }
 
-const basicHue = (dataPoint: number, base: number = 0) => (dataPoint + 360 + base) % 360
+const basicHue = (dataPoint: number, base: number = 0) => (dataPoint * 15 + 360 + base) % 360
 
 const clearCell = (cell: HTMLElement, decay?: number) => {
   cell.style.transitionDuration = `${decay ? decay * 3 : 500}ms`
@@ -165,11 +174,11 @@ const clearCell = (cell: HTMLElement, decay?: number) => {
 const styleCell = (cell: HTMLElement, fade?: number, color: number = 0) => {
   cell.style.transitionDuration = `${5}ms`
   cell.style.filter = 'blur(4px)';
-  cell.style.backgroundColor = `hsla(${basicHue(color, 0)}, 50%, 10%, 1)`
+  cell.style.backgroundColor = `hsla(${basicHue(color, 0)}, 100%, 50%, 1)`
   const childCell = cell.childNodes[0] as HTMLElement;
   childCell.style.transitionDuration = `${5}ms`
   childCell.style.transform = `scale(0.1)`
-  childCell.style.backgroundColor = 'rgba(0,0,0,0.4)'
+  childCell.style.backgroundColor = 'rgba(0,0,0,1)'
   childCell.style.transitionDuration = `${(fade || 100)}ms`
   childCell.style.transform = `scale(1)`
 }
@@ -183,7 +192,6 @@ export const Visualizer: Component = () => {
         clearTimeout(resizeTimeoutHandle)
       }
       resizeTimeoutHandle = setTimeout(() => {
-        console.log('resize')
         const newRes = getPixelTotal()
         pixels = newRes
         if (analyser) {
