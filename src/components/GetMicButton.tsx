@@ -32,5 +32,8 @@ export const GetMicNodeButton = (props: { setNode: (ac: AudioContext, m: MediaSt
     setError(null);
   }
 
-  return <button type="button" onClick={getAudioNode} disabled={loading()}>Get Mic{loading() ? '...' : null}</button>
+  return <>
+  This doesn't work on Chrome currently, I'm not sure why??
+  <button type="button" onClick={getAudioNode} disabled={loading()}>Get Mic{loading() ? '...' : null}</button>
+  </>
 }

@@ -23,18 +23,13 @@ const getFft = () => {
   return 2 ** 7;
 }
 let ac: AudioContext;
+let streamNode: MediaStreamAudioSourceNode;
 
 const audioAnalyserSetup = async (framerate = 10, usesTimeout?: boolean) => {
-  const audioContext = new AudioContext()
-  const streamNode = await navigator.mediaDevices
-  .getUserMedia({ audio: true })
-  .then((stream: MediaStream) =>  audioContext.createMediaStreamSource(stream))
-  const analyser = audioContext.createAnalyser();
+  const analyser = ac.createAnalyser();
   analyserSource = analyser;
-  const gainNode = audioContext.createGain();
+  const gainNode = ac.createGain();
   gainNode.gain.value = 20// 10 %
-  ac = audioContext;
-  audioContext.resume();
   streamNode.connect(gainNode);
   streamNode.connect(analyser);
   analyser.connect(gainNode);
@@ -77,13 +72,6 @@ const audioAnalyserSetup = async (framerate = 10, usesTimeout?: boolean) => {
     console.log('diff to use: ',diffToUse)
     for (let i = 0; i < pixels; i++) {
       const dataIdx = dataArray[(bufferLength / Math.floor(pixelRatio)) * i];
-
-    console.log({
-      fft: analyser.fftSize,
-      bufferLength,
-      pixelRatio,
-      pixels,
-    });
       const dataValue = dataArray[dataIdx];
       if (
         dataValue < 128 - diffToUse
@@ -137,7 +125,9 @@ const Cells = (props: { cellCount: number, hasChildCells: boolean }) => {
   return (
     <div class={`${styles.App} ${moving() ? '': styles.NoCursor}`} style={`--size: var(${PIXEL_SIZE}px);`}>
       {!initialized()
-        ? <GetMicNodeButton setNode={(ac, micNode) => {
+        ? <GetMicNodeButton setNode={(audioContext, micNode) => {
+          ac = audioContext;
+          streamNode = micNode;
           audioAnalyserSetup(30, true)
           setInitialized(true)
         }}/>
