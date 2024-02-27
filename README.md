@@ -15,12 +15,23 @@ HTML based approach was taken for the following reasons:
 
 ### TODO
 
-- clean up the code, loads and loads to do here
-- UI for settings (cell size mainly)
-- FFT adapting to changes in cell sizes
-- Process for handling different visualisers
-- Process for sanitizing the scale of changes
+#### MiniLED Visualizer
 
+- UI for settings (cell size on basis of miniled count, framerate, performance optimisations)
+- Ability to stream audio rather than relying on input
+- Control of gain settings
+- Full screen
+
+#### Milkdrop Visualiser filters
+
+- Save settings via local storage
+- Ability to disable some filters from list
+- Finish off UI to usable state
+
+#### HTML filter tool
+
+- gradual darkness filter to let screen dim to blackness
+- utilise similar UI to milkdrop screen (menu fade)
 
 ## Youtube filter tool
 

@@ -1,15 +1,11 @@
-import { Component, createEffect, createRenderEffect, createSignal } from 'solid-js';
+import { Component, createRenderEffect, createSignal } from 'solid-js';
 
-import logo from './logo.svg';
 import styles from './Visualizer.module.css';
 
-let i = 0;
-let timeoutHandle: number;
 let resizeTimeoutHandle: number;
 let analyser: AnalyserNode;
 let pixels = 1020
 let audioReady = false;
-let loopTimer: number;
 
 const PIXEL_SIZE = 80
 const getPixelTotal = () => {
@@ -30,20 +26,20 @@ const getStreamObject = () => {
 }
 
 const getFft = () => {
-  for (let i = 15; i > 4; i--) {
-    if (pixels < (2**i / 2)) {
-      return 2**(i-4);
+  for (let i = 13; i > 4; i--) {
+    if (pixels > (2**i / 2)) {
+      return 2**(i+1);
     }
   }
   return 2 ** 7;
 }
 
-const audioAnalyserSetup = (stream: MediaStream) => {
+const audioAnalyserSetup = (stream: MediaStream, framerate = 10, usesTimeout?: boolean) => {
   const ac = new AudioContext()
   const source = ac.createMediaStreamSource(stream);
   const analyser = ac.createAnalyser();
   const gainNode = ac.createGain()
-  gainNode.gain.value = 200// 10 %
+  gainNode.gain.value = 100// 10 %
   source.connect(gainNode)
   source.connect(analyser);
   analyser.connect(gainNode)
@@ -58,12 +54,15 @@ const audioAnalyserSetup = (stream: MediaStream) => {
   let j = 0
   let then = 0;
   const last10largest = [0,0,0,0,0,0,0,0,0,0]
+  let timerRef: number;
+  const interval = 1000/framerate;
   function draw() {
-    // const drawVisual = requestAnimationFrame(draw);
-    const now = Date.now();
-    if ((now - then) < 50) {
-      requestAnimationFrame(draw);
-      return;
+    if (!usesTimeout) {
+      const now = Date.now();
+      if ((now - then) < interval) {
+        requestAnimationFrame(draw);
+        return;
+      }
     }
     analyser.getByteTimeDomainData(dataArray);
     console.log('fft: ', analyser.fftSize, ';pixels: ', pixels)
@@ -77,10 +76,11 @@ const audioAnalyserSetup = (stream: MediaStream) => {
     console.log('largest: ', largestDeviation, '; bufferLength: ', bufferLength)
     last10largest.shift()
     last10largest.push(largestDeviation);
-    const diffToUse = Math.ceil(last10largest.reduce((a,b) => a > b ? a : b) / 4)
+    const diffToUse = Math.ceil(last10largest.reduce((a,b) => a > b ? a : b) / 2)
     console.log(last10largest);
+    console.log('diff to use: ',diffToUse)
     // skip only to figure that matches number of pixels
-    for (let i = 0; i < bufferLength; i+= Math.floor(pixelRatio)) {
+    for (let i = 0; i < bufferLength && diffToUse > 2; i+= Math.floor(pixelRatio)) {
       if (
         dataArray[i] < 128 - diffToUse
         || dataArray[i] > 128 + diffToUse
@@ -88,13 +88,17 @@ const audioAnalyserSetup = (stream: MediaStream) => {
         const fade = Math.abs(dataArray[i] - 128)
         let pixelIdx = Math.floor(pixels * (i / bufferLength));
         if (cells[pixelIdx]) {
-          styleCell(cells[pixelIdx], fade*10, dataArray[i])
-          setTimeout(() => clearCell(cells[pixelIdx]), 100)
+          styleCell(cells[pixelIdx], fade, (diffToUse / fade) * 120)
+          setTimeout(() => clearCell(cells[pixelIdx]), fade*10)
         }
       }
     }
     j++;
-    requestAnimationFrame(draw)
+    if (!usesTimeout) {
+      requestAnimationFrame(draw)
+    } else {
+      setTimeout(draw, interval)
+    }
   }
   draw()
   return ac;
@@ -112,14 +116,14 @@ const fullSetup = () => {
   }
   getStreamObject?.()
     ?.then(s => {
-      return audioAnalyserSetup(s)
+      return audioAnalyserSetup(s, 10, true)
     })
     ?.then(a => {
       setup = !!a;
     })
 }
 
-const Cells = (props: { cellCount: number }) => {
+const Cells = (props: { cellCount: number, hasChildCells: boolean }) => {
   const [moving, setMoving] = createSignal()
   createRenderEffect(() => {
     let timer: number;
@@ -146,14 +150,16 @@ const Cells = (props: { cellCount: number }) => {
             height: `${PIXEL_SIZE}px`,
           }}
         >
-          <div
-            class={styles.InnerCell}
-            style={{
-              // width: `${PIXEL_SIZE}px`,
-              // height: `${PIXEL_SIZE}px`,
-              // ['border-radius']: `${PIXEL_SIZE/2}px`,
-            }}
-          />
+          { props.hasChildCells && (            
+            <div
+              class={styles.InnerCell}
+              style={{
+                // width: `${PIXEL_SIZE}px`,
+                // height: `${PIXEL_SIZE}px`,
+                // ['border-radius']: `${PIXEL_SIZE/2}px`,
+              }}
+            />
+          )}
         </div>
       )}
     </div>
@@ -162,25 +168,29 @@ const Cells = (props: { cellCount: number }) => {
 
 const basicHue = (dataPoint: number, base: number = 0) => (dataPoint * 15 + 360 + base) % 360
 
-const clearCell = (cell: HTMLElement, decay?: number) => {
+const clearCell = (cell: HTMLElement, decay?: number, hasChildCell?: boolean) => {
   cell.style.transitionDuration = `${decay ? decay * 3 : 500}ms`
   cell.style.backgroundColor = 'hsla(0,0%,0%,0)'
-  const childCell = cell.childNodes[0] as HTMLElement;
-  childCell.style.transitionDuration = `${decay || 500}ms`
-  childCell.style.backgroundColor = 'rgba(0,0,0,1)'
-  childCell.style.transform = `scale(1.4)`
+  if (hasChildCell) {
+    const childCell = cell.childNodes[0] as HTMLElement;
+    childCell.style.transitionDuration = `${decay || 500}ms`
+    childCell.style.backgroundColor = 'rgba(0,0,0,1)'
+    childCell.style.transform = `scale(1.4)`
+  }
 }
 
-const styleCell = (cell: HTMLElement, fade?: number, color: number = 0) => {
+const styleCell = (cell: HTMLElement, fade?: number, color: number = 0, hasChildCell?: boolean) => {
   cell.style.transitionDuration = `${5}ms`
   cell.style.filter = 'blur(4px)';
   cell.style.backgroundColor = `hsla(${basicHue(color, 0)}, 100%, 50%, 1)`
-  const childCell = cell.childNodes[0] as HTMLElement;
-  childCell.style.transitionDuration = `${5}ms`
-  childCell.style.transform = `scale(0.1)`
-  childCell.style.backgroundColor = 'rgba(0,0,0,1)'
-  childCell.style.transitionDuration = `${(fade || 100)}ms`
-  childCell.style.transform = `scale(1)`
+  if (hasChildCell) {
+    const childCell = cell.childNodes[0] as HTMLElement;
+    childCell.style.transitionDuration = `${5}ms`
+    childCell.style.transform = `scale(0.1)`
+    childCell.style.backgroundColor = 'rgba(0,0,0,1)'
+    childCell.style.transitionDuration = `${(fade || 100)}ms`
+    childCell.style.transform = `scale(1)`
+  }
 }
 
 export const Visualizer: Component = () => {
@@ -203,6 +213,6 @@ export const Visualizer: Component = () => {
     ro.observe(document.body)
   })
   return (
-    <Cells cellCount={resolution()} />
+    <Cells cellCount={resolution()} hasChildCells={false} />
   );
 };
