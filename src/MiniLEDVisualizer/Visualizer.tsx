@@ -1,11 +1,12 @@
 import { Component, createRenderEffect, createSignal } from 'solid-js';
 
 import styles from './Visualizer.module.css';
+import { GetMicNodeButton } from '../components/GetMicButton';
 
 let resizeTimeoutHandle: number;
 let analyser: AnalyserNode;
 let pixels = 1020
-let audioReady = false;
+let audioContext: AudioContext;
 
 const PIXEL_SIZE = 80
 const getPixelTotal = () => {
@@ -15,15 +16,7 @@ const getPixelTotal = () => {
   return pixels;
 }
 
-const getStreamObject = () => {
-  if (navigator.mediaDevices) {
-    return navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((stream: MediaStream) => {
-        return stream;
-      })
-  }
-}
+
 
 const getFft = () => {
   for (let i = 13; i > 4; i--) {
@@ -34,15 +27,14 @@ const getFft = () => {
   return 2 ** 7;
 }
 
-const audioAnalyserSetup = (stream: MediaStream, framerate = 10, usesTimeout?: boolean) => {
-  const ac = new AudioContext()
-  const source = ac.createMediaStreamSource(stream);
-  const analyser = ac.createAnalyser();
-  const gainNode = ac.createGain()
-  gainNode.gain.value = 100// 10 %
-  source.connect(gainNode)
-  source.connect(analyser);
-  analyser.connect(gainNode)
+const audioAnalyserSetup = (streamNode: MediaStreamAudioSourceNode, framerate = 10, usesTimeout?: boolean) => {
+  const analyser = audioContext.createAnalyser();
+  const gainNode = audioContext.createGain();
+  gainNode.gain.value = 300// 10 %
+  audioContext.resume();
+  streamNode.connect(gainNode)
+  streamNode.connect(analyser);
+  analyser.connect(gainNode);
   analyser.fftSize = getFft();
   const pixelRatio = analyser.fftSize / pixels;
   // analyser.minDecibels = -90;
@@ -65,14 +57,13 @@ const audioAnalyserSetup = (stream: MediaStream, framerate = 10, usesTimeout?: b
       }
     }
     analyser.getByteTimeDomainData(dataArray);
-    console.log('fft: ', analyser.fftSize, ';pixels: ', pixels)
-
     const cells = [...document.querySelectorAll('[id^=cell-]')] as HTMLElement[]
     const largestDeviation = dataArray.reduce((a,b) => {
       const diffA = Math.abs(128 - a)
       const diffB = Math.abs(128 - b)
       return diffA > diffB ? diffA : diffB;
     });
+    console.log(`j: `, j)
     console.log('largest: ', largestDeviation, '; bufferLength: ', bufferLength)
     last10largest.shift()
     last10largest.push(largestDeviation);
@@ -101,30 +92,11 @@ const audioAnalyserSetup = (stream: MediaStream, framerate = 10, usesTimeout?: b
     }
   }
   draw()
-  return ac;
-}
-let setup = false
-
-const fullSetup = () => {
-  if (!audioReady) {
-    audioReady = true;
-  } else {
-    return;
-  }
-  if (!!setup) {
-    return
-  }
-  getStreamObject?.()
-    ?.then(s => {
-      return audioAnalyserSetup(s, 10, true)
-    })
-    ?.then(a => {
-      setup = !!a;
-    })
 }
 
 const Cells = (props: { cellCount: number, hasChildCells: boolean }) => {
   const [moving, setMoving] = createSignal()
+  const [initialized, setInitialized] = createSignal(false);
   createRenderEffect(() => {
     let timer: number;
     const mouseMoveEvent = () => {
@@ -136,32 +108,37 @@ const Cells = (props: { cellCount: number, hasChildCells: boolean }) => {
     }
     document.addEventListener('mousemove', mouseMoveEvent)
   })
-  if (!audioReady) {
-    fullSetup()
-  }
+
   return (
     <div class={`${styles.App} ${moving() ? '': styles.NoCursor}`} style={`--size: var(${PIXEL_SIZE}px);`}>
-      {new Array(props.cellCount).fill(1).map((c, i) =>
-        <div
-          class={styles.Cell}
-          id={`cell-${i}`}
-          style={{
-            width: `${PIXEL_SIZE}px`,
-            height: `${PIXEL_SIZE}px`,
-          }}
-        >
-          { props.hasChildCells && (            
-            <div
-              class={styles.InnerCell}
-              style={{
-                // width: `${PIXEL_SIZE}px`,
-                // height: `${PIXEL_SIZE}px`,
-                // ['border-radius']: `${PIXEL_SIZE/2}px`,
-              }}
-            />
-          )}
-        </div>
-      )}
+      {!initialized()
+        ? <GetMicNodeButton setNode={(ac, micNode) => {
+          audioContext = ac;
+          audioAnalyserSetup(micNode, 1, true)
+          setInitialized(true)
+        }}/>
+        : new Array(props.cellCount).fill(1).map((c, i) =>
+          <div
+            class={styles.Cell}
+            id={`cell-${i}`}
+            style={{
+              width: `${PIXEL_SIZE}px`,
+              height: `${PIXEL_SIZE}px`,
+            }}
+          >
+            { props.hasChildCells && (            
+              <div
+                class={styles.InnerCell}
+                style={{
+                  // width: `${PIXEL_SIZE}px`,
+                  // height: `${PIXEL_SIZE}px`,
+                  // ['border-radius']: `${PIXEL_SIZE/2}px`,
+                }}
+              />
+            )}
+          </div>
+        )
+      }
     </div>
   )
 }

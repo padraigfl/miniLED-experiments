@@ -1,7 +1,9 @@
 import butterchurn from 'butterchurn';
 import butterchurnPresets from 'butterchurn-presets';
 import { createEffect, createSignal } from 'solid-js';
-import { NumberControls } from './filterControls';
+import { FilterControls } from './components/FilterControls';
+import { FadeAwayMenu } from './components/FadeAwayMenu';
+import { GetMicNodeButton } from './components/GetMicButton';
 
 type FilterViewModes = 'all' | 'favourites' | 'ommitted' | 'all-but-omitted'
 
@@ -16,7 +18,6 @@ const meshSizes: [number, number][] = [
   [96, 72],
   [128, 96],
 ]
-
 const canvasSizes = [-3,-2, -1, 0, 1, 2].map(v => 2**v);
 
 const NumericInput = (props: { text: string, value: number, update: (n: number) => any, min: number, max: number}) =>
@@ -71,22 +72,22 @@ function connectMicAudio(sourceNode: AudioNode, visualizer: any) {
 const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => void; blendSpeed: number; preset: string; frameRate: number; meshSize: [number, number], canvasSize: number }) => {
   const [activePreset, setActivePreset] = createSignal(props.preset);
   const [visualizer, setVisualizer] = createSignal<any>();
+  const [audioNode, setAudioNode] = createSignal<MediaStreamAudioSourceNode>();
   createEffect(() => {
     if (visualizer()) {
       props.onInitialize();
     }
   }, [visualizer]);
 
-  const getAudioNode = () => {
+  const initalizeVisualizer = (ac: AudioContext, micNode: MediaStreamAudioSourceNode) => {
     if (!!visualizer()) {
       return;
     }
-    if (!audioContext) {
-      audioContext = new AudioContext();
-    }
+    audioContext = ac;
+    setAudioNode(micNode);
     const canvas = document.getElementsByTagName('canvas')[0]
     const vis = butterchurn.createVisualizer(
-      audioContext,
+      ac,
       canvas , {
       width: window.innerWidth * props.canvasSize,
       height: window.innerHeight * props.canvasSize,
@@ -96,12 +97,7 @@ const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => voi
       meshWidth: props.meshSize[1],
     });
     setVisualizer(vis);
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((stream: MediaStream) => {
-        const micSourceNode = audioContext.createMediaStreamSource(stream);;
-        connectMicAudio(micSourceNode, vis);
-      });
+    connectMicAudio(micNode, vis);
   }
 
   createEffect(() => {
@@ -122,7 +118,7 @@ const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => voi
   return (
     <>
       <canvas style={{  position: 'absolute', top: '0px', width: '100vw', height: '100vh', "pointer-events": 'none', filter: props.filterStyle }}/>
-      { !visualizer() && <button onClick={getAudioNode}>Begin</button> }
+      { !visualizer() && <GetMicNodeButton setNode={initalizeVisualizer} /> }
     </>
   );
 };
@@ -143,13 +139,13 @@ export const Milkdrop = () => {
   const [initialized, setInitialized] = createSignal(false);
 
   // Preset states
-  const [presetList, setPresetList] = createSignal(Object.keys(allPresets)); // full list of presets, possible not needed
+  const [presetList, /* setPresetList */] = createSignal(Object.keys(allPresets)); // full list of presets, possible not needed
   const [autoUpdatePeriodS, setAutoUpdatePeriodS] = createSignal(+getSavedKey('autoUpdatePeriod') || 15); // how frequent to update preset selection, 0 = off
   const [autoUpdate, setAutoUpdate] = createSignal(+getSavedKey('autoUpdate') || 0);
   const [isRandomized, setRandomizeStatus] = createSignal(!!getSavedKey('isRandomized'));
-  const [filterListMode, setFilterListMode] = createSignal<FilterViewModes>('all'); // for disabling unliked filters from view state
   const [activePreset, setActivePreset] = createSignal(20); // the current filter
   const [presetBlendSpeed, setPresetBlendSpeed] = createSignal(+getSavedKey('presetBlendSpeed') || 1);
+  // const [filterListMode, setFilterListMode] = createSignal<FilterViewModes>('all'); // for disabling unliked filters from view state
 
   // Performance states
   const [mesh, setMesh] = createSignal<SixIndexes>(+getSavedKey('mesh') as SixIndexes || 5);
@@ -219,18 +215,6 @@ export const Milkdrop = () => {
           ?.catch(e2 => { window.alert(`fullscreen not granted ${JSON.stringify(e2)} -- Trace: ${JSON.stringify(e1)}`); })
       })
   }
-  const [menuVisible, setMenuVisible] = createSignal(false);
-
-  createEffect(() => {
-    const menuOpacityListener = () => setMenuVisible(true);
-    document.addEventListener('mousemove', menuOpacityListener);
-    return () => document.removeEventListener('mousemove', menuOpacityListener);
-  })
-  createEffect(() => {
-    if (menuVisible()) {
-      setTimeout(() => { setMenuVisible(false) }, 10000)
-    }
-  })
 
   return (
     <div id="milkdrop-page">
@@ -245,10 +229,10 @@ export const Milkdrop = () => {
       />
       { initialized()
         ? (
-          <div style={{ position: "relative", "max-width": "320px", "max-height": "100vh", overflow: "auto", opacity: menuVisible() ? 1 : 0, transition: `all linear ${menuVisible() ? 0 : 5}s`, "pointer-events": !menuVisible() ? 'none' : undefined }}>
+          <FadeAwayMenu>
             <button onClick={requestFullScreen}>Full screen</button>
             <h2>Preset settings</h2>
-            <p style={{ background: 'black', outline: '1px solid white' }}>
+            {/* <p style={{ background: 'black', outline: '1px solid white' }}>
               Preset filter rule: <br />
               {['all', 'favourites', 'ommitted', 'all-but-omitted'].map(filterRule => 
                 <label for={`filter-radio-${filterRule}`}>
@@ -256,7 +240,7 @@ export const Milkdrop = () => {
                   <input id={`filter-radio-${filterRule}`} type="radio" name="filter" value={filterRule} checked={filterListMode() === filterRule} onChange={e => setFilterListMode(e.target.value as FilterViewModes)} />
                 </label>
               )}
-            </p>
+            </p> */}
             <SelectInput text="Current Preset" selectedIdx={activePreset()} options={presetList()} update={setActivePreset} />
             <NumericInput text="Update Rate" min={1} max={120} value={autoUpdatePeriodS()} update={setAutoUpdatePeriodS} />
             <NumericInput text="Blend" min={1} max={autoUpdatePeriodS()} value={presetBlendSpeed()} update={setPresetBlendSpeed} />
@@ -269,8 +253,8 @@ export const Milkdrop = () => {
             <NumericInput text="Frame Rate" min={1} max={120} value={frameRate()} update={setFrameRate} />
             <SelectInput text="Canvas Size" selectedIdx={canvasSize()} options={canvasSizes} update={setCanvasSize} />
             <h2>Filter settings</h2>
-            <NumberControls setFilterStyle={setFilterStyle} />
-          </div>
+            <FilterControls setFilterStyle={setFilterStyle} />
+          </FadeAwayMenu>
         )
         : null
       }

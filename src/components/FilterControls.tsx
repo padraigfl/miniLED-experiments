@@ -17,13 +17,16 @@ interface NumberControl {
   step?: number
 }
 
-export const NumberControls = (props: { setFilterStyle: (str: string) => void }) => {
+export const FilterControls = (props: { setFilterStyle: (str: string) => void }) => {
   const [filterState, setFilterState] = createSignal({
     brightness: 0.5,
     contrast: 3.2,
     saturation: 3.1,
     blur: 1,
     isEnabled: false,
+    // TODO: enable means for gradual dimming
+    fadeToBlack: false,
+    fadeToBlackTime: 0,
   });
   const setBrightness = (n: number) => setFilterState(f => ({ ...f, brightness: n }))
   const setContrast = (n: number) => setFilterState(f => ({ ...f, contrast: n }));
