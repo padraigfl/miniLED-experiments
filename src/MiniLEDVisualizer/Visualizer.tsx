@@ -3,7 +3,6 @@ import styles from './Visualizer.module.css';
 import { GetMicNodeButton } from '../components/GetMicButton';
 
 let resizeTimeoutHandle: number;
-let analyserSource: AnalyserNode;
 let pixels = 1020;
 
 const PIXEL_SIZE = 80
@@ -25,25 +24,34 @@ const getFft = () => {
 let ac: AudioContext;
 let streamNode: MediaStreamAudioSourceNode;
 let active = false;
+let analyser: AnalyserNode;
 
 const audioAnalyserSetup = async (framerate = 10, usesTimeout?: boolean) => {
-  const analyser = ac.createAnalyser();
-  analyserSource = analyser;
-  const gainNode = ac.createGain();
-  gainNode.gain.value = 20// 10 %
-  streamNode.connect(gainNode);
-  streamNode.connect(analyser);
-  analyser.connect(gainNode);
+  analyser = ac.createAnalyser();
   analyser.fftSize = getFft();
-  // analyser.minDecibels = -90;
-  // analyser.maxDecibels = -40;
-  // analyser.minDecibels = -60
+  const gainNode = ac.createGain();
+  gainNode.gain.value = 10// 10 %
+  streamNode.connect(gainNode);
+  gainNode.connect(analyser);
+  const interval = 1000/framerate;
   const bufferLength = analyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
+  console.log({
+    ac,
+    streamNode,
+    analyser,
+    gainNode,
+    interval,
+    bufferLength,
+    dataArray,
+  })
+
+  analyser.smoothingTimeConstant = 0.85;
+  // analyser.maxDecibels = -40;
+  // analyser.minDecibels = -60
   let j = 0
   let then = 0;
   const last10largest = [0,0,0,0,0,0,0,0,0,0]
-  const interval = 1000/framerate;
   active = true;
   function draw() {
     if (!active) {
@@ -65,12 +73,9 @@ const audioAnalyserSetup = async (framerate = 10, usesTimeout?: boolean) => {
       const diffB = Math.abs(128 - b)
       return diffA > diffB ? diffA : diffB;
     });
-    console.log(`j: `, j)
-    console.log('largest: ', largestDeviation, '; bufferLength: ', bufferLength)
     last10largest.shift()
     last10largest.push(largestDeviation);
     const diffToUse = Math.ceil(last10largest.reduce((a,b) => a > b ? a : b) / 2)
-    console.log(last10largest);
     console.log('diff to use: ',diffToUse)
     for (let i = 0; i < pixels; i++) {
       const dataIdx = dataArray[(bufferLength / Math.floor(pixelRatio)) * i];
@@ -127,12 +132,10 @@ const Cells = (props: { cellCount: number, hasChildCells: boolean }) => {
   return (
     <div class={`${styles.App} ${moving() ? '': styles.NoCursor}`} style={`--size: var(${PIXEL_SIZE}px);`}>
       {!initialized()
-        ? <div>
-          This seems to only work on Firefox currently, I'm not sure why??
-          <GetMicNodeButton setNode={(audioContext, micNode) => {
+        ? <div><GetMicNodeButton setNode={(audioContext, micNode) => {
           ac = audioContext;
           streamNode = micNode;
-          audioAnalyserSetup(30, true)
+          audioAnalyserSetup(10, true)
           setInitialized(true)
         }}/></div>
         : new Array(props.cellCount).fill(1).map((c, i) =>
@@ -172,9 +175,7 @@ export const Visualizer: Component = () => {
       resizeTimeoutHandle = setTimeout(() => {
         const newRes = getPixelTotal()
         pixels = newRes
-        if (analyserSource) {
-          analyserSource.fftSize = getFft()
-        }
+
         setResolution(newRes)
       }, 50)
     })
@@ -188,7 +189,6 @@ export const Visualizer: Component = () => {
     <Cells cellCount={resolution()} hasChildCells={false} />
   );
 };
-
 
 const basicHue = (dataPoint: number, base: number = 0) => (dataPoint * 15 + 360 + base) % 360
 
