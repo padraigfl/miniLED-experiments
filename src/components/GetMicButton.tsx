@@ -6,15 +6,15 @@ export const GetMicNodeButton = (props: { setNode: (ac: AudioContext, m: MediaSt
   const [micNode, setMicNode] = createSignal<MediaStreamAudioSourceNode>()
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<Error | null>();
+  const [audioContext, setAudioContext] = createSignal<AudioContext>();
   const getAudioNode = () => {
-    if (!audioContext) {
-      audioContext = new AudioContext();
-    }
+    const ac = new AudioContext();
+    setAudioContext(ac)
     setLoading(true)
     return navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream: MediaStream) => {
-        const micSourceNode = audioContext.createMediaStreamSource(stream);
+        const micSourceNode = ac.createMediaStreamSource(stream);
         setMicNode(micSourceNode);
       })
       .catch(setError)
@@ -22,8 +22,8 @@ export const GetMicNodeButton = (props: { setNode: (ac: AudioContext, m: MediaSt
   }
 
   createEffect(() => {
-    if (!!micNode() && !!audioContext) {
-      props.setNode(audioContext, micNode() as MediaStreamAudioSourceNode)
+    if (!!micNode() && !!audioContext()) {
+      props.setNode(audioContext()!, micNode() as MediaStreamAudioSourceNode)
     }
   });
 
@@ -33,7 +33,7 @@ export const GetMicNodeButton = (props: { setNode: (ac: AudioContext, m: MediaSt
   }
 
   return <>
-  This doesn't work on Chrome currently, I'm not sure why??
+  This seems to only work on Firefox currently, I'm not sure why??
   <button type="button" onClick={getAudioNode} disabled={loading()}>Get Mic{loading() ? '...' : null}</button>
   </>
 }

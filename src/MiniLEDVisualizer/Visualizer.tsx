@@ -39,13 +39,10 @@ const audioAnalyserSetup = async (framerate = 10, usesTimeout?: boolean) => {
   // analyser.minDecibels = -60
   const bufferLength = analyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
-  analyser.getByteTimeDomainData(dataArray);
   let j = 0
   let then = 0;
   const last10largest = [0,0,0,0,0,0,0,0,0,0]
-  let timerRef: number;
   const interval = 1000/framerate;
-  let initialRun = true;
   function draw() {
     if (!usesTimeout) {
       const now = Date.now();
@@ -125,12 +122,13 @@ const Cells = (props: { cellCount: number, hasChildCells: boolean }) => {
   return (
     <div class={`${styles.App} ${moving() ? '': styles.NoCursor}`} style={`--size: var(${PIXEL_SIZE}px);`}>
       {!initialized()
-        ? <GetMicNodeButton setNode={(audioContext, micNode) => {
+        ? <div>
+          <GetMicNodeButton setNode={(audioContext, micNode) => {
           ac = audioContext;
           streamNode = micNode;
           audioAnalyserSetup(30, true)
           setInitialized(true)
-        }}/>
+        }}/></div>
         : new Array(props.cellCount).fill(1).map((c, i) =>
           <div
             class={styles.Cell}
