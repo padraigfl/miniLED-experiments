@@ -5,8 +5,6 @@ import { FilterControls } from './components/FilterControls';
 import { FadeAwayMenu } from './components/FadeAwayMenu';
 import { GetMicNodeButton } from './components/GetMicButton';
 
-type FilterViewModes = 'all' | 'favourites' | 'ommitted' | 'all-but-omitted'
-
 const getValueInRange = (value: number, minValue: number = 0, maxValue: number) => value < minValue ? minValue : value;
 
 type SixIndexes = 0|1|2|3|4|5;
@@ -69,13 +67,13 @@ function connectMicAudio(sourceNode: AudioNode, visualizer: any) {
   startRenderer(visualizer);
 }
 
-const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => void; blendSpeed: number; preset: string; frameRate: number; meshSize: [number, number], canvasSize: number }) => {
+const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => void; blendSpeed: number; preset: string; frameRate: number; meshSize: [number, number] }) => {
   const [activePreset, setActivePreset] = createSignal(props.preset);
   const [visualizer, setVisualizer] = createSignal<any>();
-  const [audioNode, setAudioNode] = createSignal<MediaStreamAudioSourceNode>();
   createEffect(() => {
     if (visualizer()) {
       props.onInitialize();
+      visualizer().loadPreset(allPresets[props.preset], props.blendSpeed);
     }
   }, [visualizer]);
 
@@ -84,14 +82,13 @@ const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => voi
       return;
     }
     audioContext = ac;
-    setAudioNode(micNode);
     const canvas = document.getElementsByTagName('canvas')[0]
     const vis = butterchurn.createVisualizer(
       ac,
       canvas , {
-      width: window.innerWidth * props.canvasSize,
-      height: window.innerHeight * props.canvasSize,
-      pixelRatio: 1,
+      width: window.innerWidth / 1,
+      height: window.innerHeight / 1,
+      pixelRatio: window.devicePixelRatio || 1,
       textureRatio: 1,
       meshHeight: props.meshSize[0],
       meshWidth: props.meshSize[1],
@@ -102,12 +99,13 @@ const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => voi
 
   createEffect(() => {
     visualizer()?.setInternalMeshSize(props.meshSize[0], props.meshSize[1])
-  }, [meshSizes, visualizer]);
+  });
 
   createEffect(() => {
     if (!visualizer()) {
       return;
     }
+    console.log(visualizer());
     if (props.preset && activePreset() !== props.preset) {
       const newPreset = allPresets[props.preset];
       visualizer().loadPreset(allPresets[props.preset], props.blendSpeed);
@@ -125,43 +123,55 @@ const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => voi
 
 const getSavedKey = (key: string) => localStorage.getItem(key) || '';
 const updateSavedKey = (key: string, value: any) => localStorage.setItem(key, `${value}`);
-const appendSavedKey = (key: string, value: string) => {
-  const currentValue = JSON.parse(localStorage.getItem('key') || '[]');
-  localStorage.setItem(key, JSON.stringify([...currentValue, value ]));
-}
-const removeFromSavedKey = (key: string, value: string) => {
-  const currentValue = JSON.parse(localStorage.getItem('key') || '[]');
-  localStorage.setItem(key, JSON.stringify(JSON.parse(localStorage.getItem('key') || '[]').filter((v: any) => v !== value)));
-}
+
+const defaultFilters = {
+  brightness: 0.45,
+  contrast: 7,
+  saturate: 7.3,
+  blur: 30,
+  isEnabled: true,
+};
 
 export const Milkdrop = () => {
   // Status info
   const [initialized, setInitialized] = createSignal(false);
 
   // Preset states
-  const [presetList, /* setPresetList */] = createSignal(Object.keys(allPresets)); // full list of presets, possible not needed
-  const [autoUpdatePeriodS, setAutoUpdatePeriodS] = createSignal(+getSavedKey('autoUpdatePeriod') || 15); // how frequent to update preset selection, 0 = off
+  // full list of presets, possible not needed
+  const [presetList, /* setPresetList */] = createSignal(Object.keys(allPresets));
+  // the currently active preset
+  const [activePreset, setActivePreset] = createSignal(84);
+  // the duration of blending between presets
+  const [presetBlendSpeed, setPresetBlendSpeed] = createSignal(+getSavedKey('presetBlendSpeed') || 5);
+  // for disabling unliked filters from view state
+  // // const [filterListMode, setFilterListMode] = createSignal<FilterViewModes>('all');
+
+  // how frequent to update preset selection
+  const [autoUpdatePeriodS, setAutoUpdatePeriodS] = createSignal(+getSavedKey('autoUpdatePeriod') || 15);
+  // for toggling update period
   const [autoUpdate, setAutoUpdate] = createSignal(+getSavedKey('autoUpdate') || 0);
+  // toggle for whether updates should be randomized
   const [isRandomized, setRandomizeStatus] = createSignal(!!getSavedKey('isRandomized'));
-  const [activePreset, setActivePreset] = createSignal(20); // the current filter
-  const [presetBlendSpeed, setPresetBlendSpeed] = createSignal(+getSavedKey('presetBlendSpeed') || 1);
-  // const [filterListMode, setFilterListMode] = createSignal<FilterViewModes>('all'); // for disabling unliked filters from view state
 
   // Performance states
-  const [mesh, setMesh] = createSignal<SixIndexes>(+getSavedKey('mesh') as SixIndexes || 5);
-  const [canvasSize, setCanvasSize] = createSignal<SixIndexes>(+getSavedKey('canvasSize') as SixIndexes || 3);
-  const [frameRate, setFrameRate] = createSignal<number>(+getSavedKey('frameRate') || 15);
+  // maximum refresh rate per second
+  const [frameRate, setFrameRate] = createSignal<number>(+getSavedKey('frameRate') || 10);
+  // updates mesh size in butterchurn, unsure how this impacts things
+  const [mesh, setMesh] = createSignal<SixIndexes>(+getSavedKey('mesh') as SixIndexes || 0);
+  // updates canvas size if it has some performance benefits
+  // const [canvasSize, setCanvasSize] = createSignal<SixIndexes>(+getSavedKey('canvasSize') as SixIndexes || 3);
 
   // derived filter
   const [filterStyle, setFilterStyle] = createSignal('');
 
+  // Update saved values
   createEffect(() => {
     updateSavedKey('autoUpdatePeriod', autoUpdatePeriodS());
     updateSavedKey('autoUpdate', autoUpdate() ? 'true' : '');
     updateSavedKey('isRandomized', isRandomized() ? 'true' : '');
     updateSavedKey('presetBlendSpeed', presetBlendSpeed());
     updateSavedKey('mesh', mesh());
-    updateSavedKey('canvasSize', canvasSize());
+    // updateSavedKey('canvasSize', canvasSize());
     updateSavedKey('frameRate', frameRate());
     refreshRate = 1000 / frameRate();
   });
@@ -221,7 +231,7 @@ export const Milkdrop = () => {
       <MilkdropRenderer
         frameRate={frameRate()}
         meshSize={meshSizes[mesh()]}
-        canvasSize={canvasSizes[canvasSize()]}
+        // canvasSize={canvasSizes[canvasSize()]}
         blendSpeed={presetBlendSpeed()}
         preset={presetList()[activePreset()]}
         onInitialize={() => setInitialized(true)}
@@ -242,18 +252,22 @@ export const Milkdrop = () => {
               )}
             </p> */}
             <SelectInput text="Current Preset" selectedIdx={activePreset()} options={presetList()} update={setActivePreset} />
-            <NumericInput text="Update Rate" min={1} max={120} value={autoUpdatePeriodS()} update={setAutoUpdatePeriodS} />
             <NumericInput text="Blend" min={1} max={autoUpdatePeriodS()} value={presetBlendSpeed()} update={setPresetBlendSpeed} />
-            <p style={{ background: 'black', outline: '1px solid white' }}>Randomize: <input type="checkbox" checked={isRandomized()} onChange={() => setRandomizeStatus(!isRandomized())} /></p>
             <p style={{ background: 'black', outline: '1px solid white' }}>Automatic change: <input type="checkbox" checked={autoUpdate() !== 0} onChange={() => setAutoUpdate(autoUpdate() !== 0 ? 0 : autoUpdatePeriodS)} /></p>
+            { autoUpdate() && (
+              <>
+                <NumericInput text="Update Rate" min={1} max={120} value={autoUpdatePeriodS()} update={setAutoUpdatePeriodS} />
+                <p style={{ background: 'black', outline: '1px solid white' }}>Randomize: <input type="checkbox" checked={isRandomized()} onChange={() => setRandomizeStatus(!isRandomized())} /></p>
+              </>
+            )}
             <h2>Render settings</h2>
             <SelectInput text="Mesh" selectedIdx={mesh()} options={meshSizes.map(([m1, m2]) => `${m1}x${m2}`)} update={v => {
               setMesh(v as SixIndexes);
             }} />
             <NumericInput text="Frame Rate" min={1} max={120} value={frameRate()} update={setFrameRate} />
-            <SelectInput text="Canvas Size" selectedIdx={canvasSize()} options={canvasSizes} update={setCanvasSize} />
+            {/* <SelectInput text="Canvas Size" selectedIdx={canvasSize()} options={canvasSizes} update={setCanvasSize} /> */}
             <h2>Filter settings</h2>
-            <FilterControls setFilterStyle={setFilterStyle} />
+            <FilterControls setFilterStyle={setFilterStyle} initialValues={defaultFilters} />
           </FadeAwayMenu>
         )
         : null

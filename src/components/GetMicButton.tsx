@@ -33,7 +33,6 @@ export const GetMicNodeButton = (props: { setNode: (ac: AudioContext, m: MediaSt
   }
 
   return <>
-  This seems to only work on Firefox currently, I'm not sure why??
   <button type="button" onClick={getAudioNode} disabled={loading()}>Get Mic{loading() ? '...' : null}</button>
   </>
 }

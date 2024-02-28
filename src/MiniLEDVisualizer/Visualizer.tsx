@@ -1,4 +1,4 @@
-import { Component, createRenderEffect, createSignal } from 'solid-js';
+import { Component, createEffect, createRenderEffect, createSignal } from 'solid-js';
 import styles from './Visualizer.module.css';
 import { GetMicNodeButton } from '../components/GetMicButton';
 
@@ -24,6 +24,7 @@ const getFft = () => {
 }
 let ac: AudioContext;
 let streamNode: MediaStreamAudioSourceNode;
+let active = false;
 
 const audioAnalyserSetup = async (framerate = 10, usesTimeout?: boolean) => {
   const analyser = ac.createAnalyser();
@@ -43,7 +44,11 @@ const audioAnalyserSetup = async (framerate = 10, usesTimeout?: boolean) => {
   let then = 0;
   const last10largest = [0,0,0,0,0,0,0,0,0,0]
   const interval = 1000/framerate;
+  active = true;
   function draw() {
+    if (!active) {
+      return;
+    }
     if (!usesTimeout) {
       const now = Date.now();
       if ((now - then) < interval) {
@@ -123,6 +128,7 @@ const Cells = (props: { cellCount: number, hasChildCells: boolean }) => {
     <div class={`${styles.App} ${moving() ? '': styles.NoCursor}`} style={`--size: var(${PIXEL_SIZE}px);`}>
       {!initialized()
         ? <div>
+          This seems to only work on Firefox currently, I'm not sure why??
           <GetMicNodeButton setNode={(audioContext, micNode) => {
           ac = audioContext;
           streamNode = micNode;
@@ -173,6 +179,10 @@ export const Visualizer: Component = () => {
       }, 50)
     })
     ro.observe(document.body)
+  })
+
+  createEffect(() => {
+    return () => { active = false; };
   })
   return (
     <Cells cellCount={resolution()} hasChildCells={false} />

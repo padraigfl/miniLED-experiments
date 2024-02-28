@@ -1,7 +1,7 @@
 import { Accessor, createEffect, createMemo, createSignal } from "solid-js";
 
 const MAX_BRIGHTNESS = 1;
-const MIN_BRIGHTNESS = 0.05;
+const MIN_BRIGHTNESS = 0.30; // less than 0.3 seems to always result in a black screen?
 const MAX_CONTRAST = 10;
 const MIN_CONTRAST = 1;
 const MIN_SATURATION = 0.1;
@@ -17,7 +17,15 @@ interface NumberControl {
   step?: number
 }
 
-export const FilterControls = (props: { setFilterStyle: (str: string) => void }) => {
+interface DefaultFilters {
+  brightness?: number;
+  blur?: number;
+  saturate?: number;
+  contrast?: number;
+  isEnabled?: boolean;
+}
+
+export const FilterControls = (props: { setFilterStyle: (str: string) => void, initialValues?: DefaultFilters }) => {
   const [filterState, setFilterState] = createSignal({
     brightness: 0.5,
     contrast: 3.2,
@@ -27,6 +35,7 @@ export const FilterControls = (props: { setFilterStyle: (str: string) => void })
     // TODO: enable means for gradual dimming
     fadeToBlack: false,
     fadeToBlackTime: 0,
+    ...props.initialValues,
   });
   const setBrightness = (n: number) => setFilterState(f => ({ ...f, brightness: n }))
   const setContrast = (n: number) => setFilterState(f => ({ ...f, contrast: n }));
@@ -62,7 +71,7 @@ export const FilterControls = (props: { setFilterStyle: (str: string) => void })
       value: filterState().blur,
       setValue: setBlur,
       minValue: 1,
-      maxValue: 10,
+      maxValue: 40,
     }
   ])
 

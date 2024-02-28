@@ -17,21 +17,26 @@ HTML based approach was taken for the following reasons:
 
 #### MiniLED Visualizer
 
-- UI for settings (cell size on basis of miniled count, framerate, performance optimisations)
+- ONLY SEEMS TO WORK ON FIREFOX??
+- UI for settings
 - Ability to stream audio rather than relying on input
 - Control of gain settings
 - Full screen
+- approximate miniLED positions on basis of screen resolution and miniLED count
+- `getByteFrequencyData` mode
 
 #### Milkdrop Visualiser filters
 
 - Save settings via local storage
 - Ability to disable some filters from list
 - Finish off UI to usable state
+- Assess performance optimisations
 
 #### HTML filter tool
 
 - gradual darkness filter to let screen dim to blackness
 - utilise similar UI to milkdrop screen (menu fade)
+- offer easy variety of filter examples
 
 ## Youtube filter tool
 
