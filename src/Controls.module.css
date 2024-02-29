@@ -1,7 +1,0 @@
-.hoverVisible:hover, .hoverVisible:focus-within {
-  opacity: 1;
-}
-.hoverVisible {
-  opacity: 0;
-  transition: all linear 0.2s;
-}

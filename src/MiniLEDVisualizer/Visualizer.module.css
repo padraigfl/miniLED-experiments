@@ -16,11 +16,10 @@
   cursor: none;
 }
 
-
 .Cell {
-  /* transition: all cubic-bezier(0, 0.5, 0.95, 1.28) 1000ms; */
-  /* filter: brightness(500%) */
+  outline: 1px solid black;
 }
+
 .InnerCell {
   height: 70%;
   width: 70%;
