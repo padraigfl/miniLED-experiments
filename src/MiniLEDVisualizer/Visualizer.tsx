@@ -1,6 +1,6 @@
 import { Component, createEffect, createRenderEffect, createSignal } from 'solid-js';
 import styles from './Visualizer.module.css';
-import { FullScreenButton, GetMicNodeButton } from '../components/GetMicButton';
+import { FullScreenButton, GetMicNodeButton } from '../components/browserActionButtons';
 import { FadeAwayMenu } from '../components/FadeAwayMenu';
 import { NumericInput } from '../components/inputs';
 

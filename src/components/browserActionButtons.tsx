@@ -30,9 +30,7 @@ export const GetMicNodeButton = (props: { setNode: (ac: AudioContext, m: MediaSt
     setError(null);
   }
 
-  return <>
-  <button type="button" onClick={getAudioNode} disabled={loading()}>Get Mic{loading() ? '...' : null}</button>
-  </>
+  return <button type="button" onClick={getAudioNode} disabled={loading()}>Get Mic{loading() ? '...' : null}</button>
 }
 
 export const FullScreenButton = (props: { fullScreenSelector: string }) => {
@@ -47,20 +45,15 @@ export const FullScreenButton = (props: { fullScreenSelector: string }) => {
           ?.catch(e2 => { window.alert(`fullscreen not granted ${JSON.stringify(e2)} -- Trace: ${JSON.stringify(e1)}`); })
       })
   }
-
-  if (fullScreen()) {
-    <button type="button"  onClick={() => {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      }
-    }}>
-      Exit full screen
-    </button>
+  const exitFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
   }
 
   return (
-    <button type="button" onClick={requestFullScreen}>
-      Full screen
+    <button type="button" onClick={fullScreen() ? requestFullScreen : exitFullscreen}>
+      {fullScreen() ? 'Exit full screen': 'Full screen'}
     </button>
   );
 }

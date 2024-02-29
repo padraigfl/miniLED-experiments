@@ -1,4 +1,4 @@
-import { JSX, ParentComponent, createEffect, createRenderEffect, createSignal } from "solid-js";
+import { JSX, createEffect, createRenderEffect, createSignal } from "solid-js";
 
 export const FadeAwayMenu = (props: { keepPointerEvents?: boolean; children: JSX.Element }) => {
   const [menuVisible, setMenuVisible] = createSignal(false);

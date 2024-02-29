@@ -3,7 +3,7 @@ import butterchurnPresets from 'butterchurn-presets';
 import { createEffect, createSignal } from 'solid-js';
 import { FilterControls } from './components/FilterControls';
 import { FadeAwayMenu } from './components/FadeAwayMenu';
-import { GetMicNodeButton } from './components/GetMicButton';
+import { GetMicNodeButton } from './components/browserActionButtons';
 import { NumericInput, SelectInput } from './components/inputs';
 
 type SixIndexes = 0|1|2|3|4|5;
