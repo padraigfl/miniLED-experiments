@@ -71,12 +71,15 @@ const audioAnalyserSetup = async (usesTimeout?: boolean) => {
       return diffA > diffB ? diffA : diffB;
     });
 
-    last10largest.shift();
-    last10largest.push(largestDeviation);
-    const diffToUse = Math.ceil(last10largest.reduce((a,b) => a > b ? a : b) / 4);
+    if (j % framerate === 0) {
+      last10largest.shift();
+      last10largest.push(largestDeviation);
+    }
+    const sortedLargest = [...last10largest].sort((a,b) => a < b ? 1 : -1)
+    const diffToUse = Math.ceil(sortedLargest[0]);
 
-    const range = 360 / diffToUse
-    for (let i = 0; i < pixels && diffToUse > 2; i ++) {
+    const range = 360 / diffToUse;
+    for (let i = 0; i < pixels && diffToUse > 2; i++) {
       const dataIdx = dataArray[Math.floor(bufferLength / pixels) * i];
       const dataValue = dataArray[dataIdx];
       if (
@@ -85,7 +88,7 @@ const audioAnalyserSetup = async (usesTimeout?: boolean) => {
       ) {
         const fade = Math.abs(dataValue - 128);
         if (cells[i]) {
-          styleCell(cells[i], fade * interval / 1000, (diffToUse / fade) * range * 10);
+          styleCell(cells[i], fade * interval / 1000, (diffToUse / fade) * range * 20);
           setTimeout(() => clearCell(cells[i]), fade * interval / 1000);
         }
       }
@@ -225,7 +228,6 @@ export const Visualizer: Component = () => {
 
 const basicHue = (dataPoint: number, base: number = 0) => {
   const value = (dataPoint + 360 + base)
-  console.log(value);
   return value % 360;
 }
 
