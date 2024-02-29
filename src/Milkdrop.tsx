@@ -4,8 +4,7 @@ import { createEffect, createSignal } from 'solid-js';
 import { FilterControls } from './components/FilterControls';
 import { FadeAwayMenu } from './components/FadeAwayMenu';
 import { GetMicNodeButton } from './components/GetMicButton';
-
-const getValueInRange = (value: number, minValue: number = 0, maxValue: number) => value < minValue ? minValue : value;
+import { NumericInput, SelectInput } from './components/inputs';
 
 type SixIndexes = 0|1|2|3|4|5;
 const meshSizes: [number, number][] = [
@@ -17,20 +16,6 @@ const meshSizes: [number, number][] = [
   [128, 96],
 ]
 const canvasSizes = [-3,-2, -1, 0, 1, 2].map(v => 2**v);
-
-const NumericInput = (props: { text: string, value: number, update: (n: number) => any, min: number, max: number}) =>
-  <p style={{ background: 'black', outline: '1px solid white' }}>
-    {props.text}: 
-    <input type="number" value={props.value} min={props.min} max={props.max} onChange={e => props.update(getValueInRange(+e.target.value, props.min, props.max))} />
-  </p>
-
-const SelectInput = (props: { text: string, options: (string | number)[], selectedIdx: number, update: (n: number) => any }) =>
-  <p style={{ background: 'black', outline: '1px solid white' }}>
-    {props.text}: 
-    <select value={props.selectedIdx} onChange={e => props.update(+e.target.value)} style={{ "max-width": "320px" }}>
-      {props.options.map((o, idx) => <option value={idx} disabled={idx === props.selectedIdx}>{o}</option>)}
-    </select>
-  </p>
 
 let timeoutRef: number;
 const clearLoopAction = () => {
@@ -105,7 +90,6 @@ const MilkdropRenderer = (props: { filterStyle?: string; onInitialize: () => voi
     if (!visualizer()) {
       return;
     }
-    console.log(visualizer());
     if (props.preset && activePreset() !== props.preset) {
       const newPreset = allPresets[props.preset];
       visualizer().loadPreset(allPresets[props.preset], props.blendSpeed);

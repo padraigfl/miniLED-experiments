@@ -1,7 +1,5 @@
 import { createEffect, createSignal } from "solid-js";
 
-let audioContext: AudioContext;
-
 export const GetMicNodeButton = (props: { setNode: (ac: AudioContext, m: MediaStreamAudioSourceNode) => void }) => {
   const [micNode, setMicNode] = createSignal<MediaStreamAudioSourceNode>()
   const [loading, setLoading] = createSignal(false);
@@ -35,4 +33,34 @@ export const GetMicNodeButton = (props: { setNode: (ac: AudioContext, m: MediaSt
   return <>
   <button type="button" onClick={getAudioNode} disabled={loading()}>Get Mic{loading() ? '...' : null}</button>
   </>
+}
+
+export const FullScreenButton = (props: { fullScreenSelector: string }) => {
+  const [fullScreen, setFullScreen] = createSignal(false);
+  const requestFullScreen = () => {
+    document.querySelector(props.fullScreenSelector)?.requestFullscreen()
+      ?.then(() => {
+        setFullScreen(true)
+      })
+      ?.catch(e1 => {
+        document.getElementsByTagName('canvas')[0]?.requestFullscreen()
+          ?.catch(e2 => { window.alert(`fullscreen not granted ${JSON.stringify(e2)} -- Trace: ${JSON.stringify(e1)}`); })
+      })
+  }
+
+  if (fullScreen()) {
+    <button type="button"  onClick={() => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+    }}>
+      Exit full screen
+    </button>
+  }
+
+  return (
+    <button type="button" onClick={requestFullScreen}>
+      Full screen
+    </button>
+  );
 }

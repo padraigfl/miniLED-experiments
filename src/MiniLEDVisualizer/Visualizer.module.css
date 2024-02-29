@@ -16,6 +16,10 @@
   cursor: none;
 }
 
+.Cell {
+  outline: 1px solid black;
+}
+
 .InnerCell {
   height: 70%;
   width: 70%;
